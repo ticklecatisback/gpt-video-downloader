@@ -1,3 +1,4 @@
 ﻿fastapi>=0.108.0
 uvicorn>=0.25.0
 pytube>=15.0.0
+bing_image_downloader>=1.1.2
