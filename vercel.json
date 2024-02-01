@@ -12,3 +12,15 @@
     }
   ]
 }
+
+      "src": "image_downloader.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "image_downloader.py"
+    }
+  ]
+}
