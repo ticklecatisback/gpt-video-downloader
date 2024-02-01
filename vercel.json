@@ -1,26 +1,22 @@
 {
   "builds": [
     {
+      "src": "image_downloader.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "add.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "add.py"
-    }
-  ]
-}
-
-      "src": "image_downloader.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
+      "src": "/image-downloader/(.*)",
       "dest": "image_downloader.py"
+    },
+    {
+      "src": "/add/(.*)",
+      "dest": "add.py"
     }
   ]
 }
