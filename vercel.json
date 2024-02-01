@@ -3,20 +3,12 @@
     {
       "src": "image_downloader.py",
       "use": "@vercel/python"
-    },
-    {
-      "src": "add.py",
-      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/image-downloader/(.*)",
+      "src": "/(.*)",
       "dest": "image_downloader.py"
-    },
-    {
-      "src": "/add/(.*)",
-      "dest": "add.py"
     }
   ]
 }
