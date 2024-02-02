@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from bing_image_downloader import downloader
 from google.cloud import storage
+import base64
 import os
 import tempfile
 import uuid
@@ -26,6 +27,34 @@ html = """
     </body>
 </html>
 """
+
+# Function to decode credentials and create a GCS client
+def get_gcs_client():
+    # Fetch the encoded credentials from the environment variable
+    encoded_credentials = os.getenv("GCS_CREDENTIALS_BASE64")
+    
+    # Decode the credentials
+    decoded_credentials = base64.b64decode(encoded_credentials)
+    
+    # Load the JSON credentials
+    credentials_json = json.loads(decoded_credentials)
+    
+    # Create a credentials object from the decoded JSON
+    credentials = service_account.Credentials.from_service_account_info(credentials_json)
+    
+    # Initialize the GCS client with the credentials
+    client = storage.Client(credentials=credentials, project=credentials_json['project_id'])
+    
+    return client
+
+# Example usage within an endpoint
+@app.get("/test-gcs")
+async def test_gcs():
+    # Use the GCS client to interact with GCS
+    client = get_gcs_client()
+    buckets = list(client.list_buckets())
+    return {"buckets": [bucket.name for bucket in buckets]}
+
 
 @app.get("/")
 async def root():
