@@ -65,11 +65,13 @@ def create_gcs_signed_url(bucket_name, object_name, expiration=3600):
 # Endpoint for testing GCS access
 @app.get("/test-gcs")
 async def test_gcs():
-    client = get_gcs_client()
-    if not client:
-        return {"error": "Failed to create GCS client."}
-    buckets = list(client.list_buckets())
-    return {"buckets": [bucket.name for bucket in buckets]}
+    try:
+        # Attempt to list buckets or perform another GCS operation
+        client = get_gcs_client()
+        buckets = list(client.list_buckets())
+        return {"buckets": [bucket.name for bucket in buckets]}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/")
 async def root():
