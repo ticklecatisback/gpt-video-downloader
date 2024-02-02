@@ -1,13 +1,12 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from bing_image_downloader import downloader
-import logging
+from google.cloud import storage
 import os
 import tempfile
+import uuid
 
 app = FastAPI()
-logging.basicConfig(level=logging.INFO)
-
 html = """
 <!DOCTYPE html>
 <html>
@@ -32,18 +31,47 @@ html = """
 async def root():
     return HTMLResponse(html)
 
+# Google Cloud Storage Configuration
+GCS_BUCKET_NAME = 'bucket32332'
+# Ensure you replace 'your-google-cloud-project-id' with your actual project ID
+storage_client = storage.Client(project='triple-water-379900')
+bucket = storage_client.bucket(GCS_BUCKET_NAME)
+
+def upload_file_to_gcs(file_path, bucket, object_name=None):
+    if object_name is None:
+        object_name = os.path.basename(file_path)
+    blob = bucket.blob(object_name)
+    blob.upload_from_filename(file_path)
+    return object_name
+
+def create_gcs_signed_url(bucket_name, object_name, expiration=3600):
+    blob = storage_client.bucket(bucket_name).blob(object_name)
+    try:
+        url = blob.generate_signed_url(expiration=expiration)
+    except Exception as e:
+        print(e)
+        return None
+    return url
+
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
                           limit: int = Query(10, description="The number of images to download")):
     try:
-        logging.info(f"Downloading {limit} images for query: {query}")
-        # Use the temporary directory for image download
-        temp_dir = tempfile.gettempdir()
-        output_dir = os.path.join(temp_dir, "downloaded_images")
-        os.makedirs(output_dir, exist_ok=True)
+        # Using a temporary directory to store downloaded images
+        with tempfile.TemporaryDirectory() as temp_dir:
+            downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
 
-        downloader.download(query, limit=limit, output_dir=output_dir, adult_filter_off=True, force_replace=False, timeout=60)
-        return {"message": f"Successfully downloaded {limit} images for query '{query}' in the temporary directory."}
+            # Upload files to GCS and get URLs
+            urls = []
+            for filename in os.listdir(temp_dir):
+                file_path = os.path.join(temp_dir, filename)
+                gcs_object_name = f"{uuid.uuid4()}-{filename}"
+                upload_file_to_gcs(file_path, bucket, gcs_object_name)
+                url = create_gcs_signed_url(GCS_BUCKET_NAME, gcs_object_name)
+                urls.append(url)
+
+            return {"message": "Images uploaded successfully.", "urls": urls}
     except Exception as e:
-        logging.error(f"Failed to download images: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Additional FastAPI routes and logic...
