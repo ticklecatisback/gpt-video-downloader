@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from bing_image_downloader import downloader
 from google.cloud import storage
+from google.oauth2 import service_account
+import json
 import base64
 import os
 import tempfile
@@ -28,24 +30,33 @@ html = """
 </html>
 """
 
-# Function to decode credentials and create a GCS client
 def get_gcs_client():
-    # Fetch the encoded credentials from the environment variable
     encoded_credentials = os.getenv("GCS_CREDENTIALS_BASE64")
-    
-    # Decode the credentials
     decoded_credentials = base64.b64decode(encoded_credentials)
-    
-    # Load the JSON credentials
     credentials_json = json.loads(decoded_credentials)
-    
-    # Create a credentials object from the decoded JSON
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
-    
-    # Initialize the GCS client with the credentials
     client = storage.Client(credentials=credentials, project=credentials_json['project_id'])
-    
     return client
+
+def upload_file_to_gcs(file_path, bucket_name, object_name=None):
+    client = get_gcs_client()  # Dynamically get the client
+    bucket = client.bucket(bucket_name)
+    if object_name is None:
+        object_name = os.path.basename(file_path)
+    blob = bucket.blob(object_name)
+    blob.upload_from_filename(file_path)
+    return object_name
+
+def create_gcs_signed_url(bucket_name, object_name, expiration=3600):
+    client = get_gcs_client()  # Dynamically get the client
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(object_name)
+    try:
+        url = blob.generate_signed_url(expiration=expiration)
+    except Exception as e:
+        print(e)
+        return None
+    return url
 
 # Example usage within an endpoint
 @app.get("/test-gcs")
