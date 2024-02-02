@@ -39,7 +39,7 @@ def get_gcs_client():
     return client
 
 def upload_file_to_gcs(file_path, bucket_name, object_name=None):
-    client = get_gcs_client()  # Dynamically get the client
+    client = get_gcs_client()  # Dynamically obtain the GCS client
     bucket = client.bucket(bucket_name)
     if object_name is None:
         object_name = os.path.basename(file_path)
@@ -48,15 +48,15 @@ def upload_file_to_gcs(file_path, bucket_name, object_name=None):
     return object_name
 
 def create_gcs_signed_url(bucket_name, object_name, expiration=3600):
-    client = get_gcs_client()  # Dynamically get the client
-    bucket = client.bucket(bucket_name)
-    blob = bucket.blob(object_name)
+    client = get_gcs_client()  # Dynamically obtain the GCS client
+    blob = client.bucket(bucket_name).blob(object_name)
     try:
         url = blob.generate_signed_url(expiration=expiration)
     except Exception as e:
         print(e)
         return None
     return url
+
 
 # Example usage within an endpoint
 @app.get("/test-gcs")
@@ -73,8 +73,6 @@ async def root():
 
 # Google Cloud Storage Configuration
 GCS_BUCKET_NAME = 'bucket32332'
-# Ensure you replace 'your-google-cloud-project-id' with your actual project ID
-storage_client = storage.Client(project='triple-water-379900')
 bucket = storage_client.bucket(GCS_BUCKET_NAME)
 
 def upload_file_to_gcs(file_path, bucket, object_name=None):
