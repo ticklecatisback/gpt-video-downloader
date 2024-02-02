@@ -1,14 +1,12 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from bing_image_downloader import downloader
 import logging
+import os
+import tempfile
 
 app = FastAPI()
 logging.basicConfig(level=logging.INFO)
-
-# Serve static files, e.g., favicon
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 html = """
 <!DOCTYPE html>
@@ -37,16 +35,15 @@ async def root():
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
                           limit: int = Query(10, description="The number of images to download")):
-    """
-    Downloads images based on the search query and limit provided by the user.
-    """
     try:
         logging.info(f"Downloading {limit} images for query: {query}")
-        output_dir = 'downloaded_images'
+        # Use the temporary directory for image download
+        temp_dir = tempfile.gettempdir()
+        output_dir = os.path.join(temp_dir, "downloaded_images")
+        os.makedirs(output_dir, exist_ok=True)
+
         downloader.download(query, limit=limit, output_dir=output_dir, adult_filter_off=True, force_replace=False, timeout=60)
-        return {"message": f"Successfully downloaded {limit} images for query '{query}' in the '{output_dir}/{query}' directory."}
+        return {"message": f"Successfully downloaded {limit} images for query '{query}' in the temporary directory."}
     except Exception as e:
         logging.error(f"Failed to download images: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-# Additional endpoint logic...
