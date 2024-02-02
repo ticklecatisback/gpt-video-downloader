@@ -8,7 +8,7 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 
 # Serve static files, e.g., favicon
-app.mount("/static", StaticFiles(directory="path/to/static"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 html = """
 <!DOCTYPE html>
