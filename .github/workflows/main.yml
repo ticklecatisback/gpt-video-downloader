@@ -1,0 +1,22 @@
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    - name: Use GCS Credentials
+      run: |
+        echo ${{ secrets.GCS_CREDENTIALS_BASE64 }} | base64 -d > service-account.json
+        export GOOGLE_APPLICATION_CREDENTIALS=service-account.json
+      shell: bash
+    - name: Run FastAPI application
+      run: uvicorn main:app --reload
+      env:
+        GCS_CREDENTIALS_BASE64: ${{ secrets.GCS_CREDENTIALS_BASE64 }}
