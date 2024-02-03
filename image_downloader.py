@@ -11,7 +11,7 @@ app = FastAPI()
 
 # Update these variables with your actual service account file path and scope
 SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
+SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def build_drive_service():
     credentials = service_account.Credentials.from_service_account_file(
