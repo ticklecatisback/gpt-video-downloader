@@ -50,6 +50,14 @@ async def root():
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
                           limit: int = Query(1, description="The number of images to download")):
+        headers = {
+        'User-Agent': 'Mozilla/5.0 ... Safari/537.3'
+    }
+    response = requests.get(image_url, headers=headers)
+    response.raise_for_status()  # Ensure download was successful
+
+    with open(save_path, 'wb') as image_file:
+        image_file.write(response.content)
     image_urls = get_image_urls_for_query(query)
     service = build_drive_service()
     uploaded_urls = []
