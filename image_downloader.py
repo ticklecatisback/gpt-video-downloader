@@ -46,6 +46,27 @@ def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg
     service.permissions().create(fileId=file.get('id'), body=permission).execute()
     return f"https://drive.google.com/uc?id={file.get('id')}"
 
+@contextlib.contextmanager
+def change_dir(destination):
+    """Change the working directory temporarily."""
+    try:
+        cwd = os.getcwd()
+        os.chdir(destination)
+        yield
+    finally:
+        os.chdir(cwd)
+
+@contextlib.contextmanager
+def change_dir(destination):
+    """Change the working directory temporarily."""
+    try:
+        cwd = os.getcwd()
+        os.chdir(destination)
+        yield
+    finally:
+        os.chdir(cwd)
+
+
 @app.get("/")
 async def root():
     return HTMLResponse(content="<h1>Image Uploader to Google Drive</h1>")
@@ -56,6 +77,7 @@ async def download_images(query: str = Query(..., description="The search query 
     service = build_drive_service()
     uploaded_urls = []
     with tempfile.TemporaryDirectory() as temp_dir:
+        with change_dir(temp_dir):
         downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
         for filename in os.listdir(temp_dir):
             file_path = os.path.join(temp_dir, filename)
