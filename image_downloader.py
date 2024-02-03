@@ -10,7 +10,7 @@ import os
 app = FastAPI()
 
 # Assume this is the path to your service account JSON file
-SERVICE_ACCOUNT_FILE = 'path/to/your/service_account.json'
+SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 def build_drive_service():
