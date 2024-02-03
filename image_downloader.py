@@ -14,13 +14,12 @@ app = FastAPI()
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def get_service_account_credentials():
-    # Decode service account info from base64-encoded environment variable
     encoded_credentials = os.getenv('GCS_CREDENTIALS_BASE64')
     if not encoded_credentials:
         raise ValueError("Service account credentials are not set")
     decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
     service_account_info = json.loads(decoded_credentials)
-    credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
+    credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=['https://www.googleapis.com/auth/drive'])
     return credentials
 
 def upload_file_to_drive(service, file_name, file_path, mime_type='image/jpeg'):
