@@ -1,15 +1,10 @@
 jobs:
-  your_job:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-      - name: Decode GCS Credentials and Set Environment Variable
-        run: |
-          echo ${{ secrets.GCS_CREDENTIALS_BASE64 }} | base64 -d > gcs_credentials.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS_BASE64=${{ secrets.GCS_CREDENTIALS_BASE64 }}" >> $GITHUB_ENV
-        shell: bash
+    - uses: actions/checkout@v2
+    - name: Write to the Workspace
+      run: |
+        echo "This will be saved in the workspace" > "${GITHUB_WORKSPACE}/my_file.txt"
+    - name: Display saved file
+      run: cat "${GITHUB_WORKSPACE}/my_file.txt"
