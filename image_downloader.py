@@ -4,13 +4,13 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from io import BytesIO
-import requests  # Assuming you're using requests to download images into memory
+import requests
 import os
 
 app = FastAPI()
 
-# Update with the path to your Google service account credentials
-SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
+# Assume this is the path to your service account JSON file
+SERVICE_ACCOUNT_FILE = 'path/to/your/service_account.json'
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 def build_drive_service():
@@ -33,6 +33,16 @@ def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"https://drive.google.com/uc?id={file['id']}"
 
+def get_image_urls_for_query(query):
+    """Fetch image URLs for a given query. This function needs to be implemented."""
+    # Implement logic to fetch image URLs based on `query`
+    # This could involve calling an external API, web scraping, etc.
+    # For demonstration, return a list of hypothetical URLs
+    return [
+        "https://cat-world.com/wp-content/uploads/2017/06/spotted-tabby-1.jpg",
+        # Add more URLs as needed
+    ]
+
 @app.get("/")
 async def root():
     return HTMLResponse(content="<h1>Image Uploader to Google Drive</h1>")
@@ -40,8 +50,7 @@ async def root():
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
                           limit: int = Query(1, description="The number of images to download")):
-    # Placeholder for actual image URLs to download - you'll need a way to obtain these based on the query
-    image_urls = ["URL_TO_IMAGE_BASED_ON_QUERY"]
+    image_urls = get_image_urls_for_query(query)
     service = build_drive_service()
     uploaded_urls = []
     for image_url in image_urls[:limit]:  # Limit the number of images processed
