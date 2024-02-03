@@ -32,12 +32,17 @@ html = """
 </html>
 """
 
-# Function to dynamically obtain the Google Drive service
-def build_drive_service():
-    encoded_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_BASE64")
+def get_service_account_credentials():
+    encoded_credentials = os.getenv("GCS_CREDENTIALS_BASE64")
+    if encoded_credentials is None:
+        raise Exception("The GCS_CREDENTIALS_BASE64 environment variable is not set.")
     decoded_credentials = base64.b64decode(encoded_credentials)
-    credentials_json = json.loads(decoded_credentials)
-    credentials = service_account.Credentials.from_service_account_info(credentials_json)
+    credentials_dict = json.loads(decoded_credentials)
+    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+    return credentials
+
+def build_drive_service():
+    credentials = get_service_account_credentials()
     return build('drive', 'v3', credentials=credentials)
 
 @app.get("/")
@@ -63,4 +68,3 @@ async def download_images(query: str = Query(..., description="The search query 
             return {"message": "Images uploaded successfully.", "urls": urls}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
