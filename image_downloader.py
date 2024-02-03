@@ -19,14 +19,14 @@ def get_service_account_credentials():
         raise ValueError("Service account credentials are not set")
     decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
     service_account_info = json.loads(decoded_credentials)
-    credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=['https://www.googleapis.com/auth/drive'])
+    credentials = service_account.Credentials.from_service_account_info(service_account_info)
     return credentials
 
-def upload_file_to_drive(service, file_name, file_path, mime_type='image/jpeg'):
-    file_metadata = {'name': file_name}
-    media = MediaFileUpload(file_path, mimetype=mime_type)
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    return file.get('id')
+# Example usage with Google Drive API
+def build_drive_service():
+    credentials = get_service_account_credentials()
+    service = build('drive', 'v3', credentials=credentials)
+    return service
 
 @app.get("/")
 async def root():
