@@ -1,10 +1,47 @@
+name: Upload to Google Drive
+
+on: [push]
+
 jobs:
-  build:
+  upload:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Write to the Workspace
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install Dependencies
       run: |
-        echo "This will be saved in the workspace" > "${GITHUB_WORKSPACE}/my_file.txt"
-    - name: Display saved file
-      run: cat "${GITHUB_WORKSPACE}/my_file.txt"
+        pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+
+    - name: Decode GDrive Credentials
+      env:
+        GDRIVE_CREDENTIALS_BASE64: ${{ secrets.GDRIVE_CREDENTIALS_BASE64 }}
+      run: echo "$GDRIVE_CREDENTIALS_BASE64" | base64 -d > credentials.json
+
+    - name: Upload File to Google Drive
+      run: |
+        python -c "
+import os
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+
+# Load credentials
+flow = InstalledAppFlow.from_client_secrets_file('credentials.json', scopes=['https://www.googleapis.com/auth/drive'])
+creds = flow.run_local_server(port=0)
+
+service = build('drive', 'v3', credentials=creds)
+
+# Replace 'test.txt' with your file
+file_metadata = {'name': 'test.txt'}
+media = MediaFileUpload('test.txt', mimetype='text/plain')
+file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+print(f'File ID: {file.get('id')}')
+"
