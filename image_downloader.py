@@ -52,11 +52,12 @@ async def root():
 
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"), limit: int = Query(10, description="The number of images to download")):
-    try:
-        credentials = get_service_account_credentials()
-        service = build('drive', 'v3', credentials=credentials)
+    credentials = get_service_account_credentials()
+    service = build('drive', 'v3', credentials=credentials)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+    # Specify /tmp directory for TemporaryDirectory()
+    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+        try:
             downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
             uploaded_files = []
             for filename in os.listdir(temp_dir):
@@ -64,5 +65,6 @@ async def download_images(query: str = Query(..., description="The search query 
                 file_id = upload_file_to_drive(service, filename, file_path)
                 uploaded_files.append(f"https://drive.google.com/uc?id={file_id}")
             return {"message": "Successfully uploaded images to Google Drive.", "files": uploaded_files}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
