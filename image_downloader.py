@@ -5,6 +5,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import os
+import json
 import tempfile
 
 app = FastAPI()
@@ -57,6 +58,14 @@ async def download_images(query: str = Query(..., description="The search query 
 }''')
     credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
     service = build('drive', 'v3', credentials=credentials)
+    
+    encoded_credentials = os.getenv('GCS_CREDENTIALS_BASE64')
+if encoded_credentials:
+    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
+    service_account_info = json.loads(decoded_credentials)
+    credentials = service_account.Credentials.from_service_account_info(service_account_info)
+else:
+    raise ValueError("Service account credentials are not set")
     
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
