@@ -55,16 +55,14 @@ async def download_images(query: str = Query(..., description="The search query 
     credentials = get_service_account_credentials()
     service = build('drive', 'v3', credentials=credentials)
 
-    # Specify /tmp directory for TemporaryDirectory()
     with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
         try:
             downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
             uploaded_files = []
             for filename in os.listdir(temp_dir):
                 file_path = os.path.join(temp_dir, filename)
-                file_id = upload_file_to_drive(service, filename, file_path)
+                file_id = upload_file_to_drive(service, filename, file_path, mime_type='image/jpeg')  # Adjust MIME type if necessary
                 uploaded_files.append(f"https://drive.google.com/uc?id={file_id}")
             return {"message": "Successfully uploaded images to Google Drive.", "files": uploaded_files}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-
