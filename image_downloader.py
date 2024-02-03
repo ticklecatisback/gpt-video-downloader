@@ -32,40 +32,34 @@ html = """
 </html>
 """
 
-def get_service_account_credentials():
-    encoded_credentials = os.getenv("GCS_CREDENTIALS_BASE64")
-    if encoded_credentials is None:
-        raise Exception("The GCS_CREDENTIALS_BASE64 environment variable is not set.")
-    decoded_credentials = base64.b64decode(encoded_credentials)
-    credentials_dict = json.loads(decoded_credentials)
-    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-    return credentials
-
-def build_drive_service():
-    credentials = get_service_account_credentials()
-    return build('drive', 'v3', credentials=credentials)
-
 @app.get("/")
 async def root():
-    # No need to load credentials just to display HTML.
-    return HTMLResponse(content=html)
+    return {"message": "Hello from FastAPI. Use /download-images/ to download images."}
+
 
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
                           limit: int = Query(10, description="The number of images to download")):
     try:
-        service = build_drive_service()
+        # Your Zapier Webhook URL
+        zapier_webhook_url = "https://zapier.com/editor/224766831/draft"
+
+        # Using a temporary directory to save downloaded images
         with tempfile.TemporaryDirectory() as temp_dir:
             downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
-            urls = []
+            
+            # Assuming you want to notify Zapier after downloading images
             for filename in os.listdir(temp_dir):
                 file_path = os.path.join(temp_dir, filename)
-                file_metadata = {'name': filename}
-                media = MediaFileUpload(file_path, mimetype='image/jpeg')  # Adjust based on your image type
-                file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                file_id = file.get('id')
-                url = f"https://drive.google.com/uc?id={file_id}"
-                urls.append(url)
-            return {"message": "Images uploaded successfully.", "urls": urls}
+                
+                # Prepare the data you want to send to Zapier
+                data_to_send = {"query": query, "filename": filename, "filepath": file_path}
+                
+                # Send a POST request to Zapier with the data
+                response = httpx.post(zapier_webhook_url, json=data_to_send)
+                if response.status_code != 200:
+                    raise Exception(f"Failed to notify Zapier for {filename}")
+
+            return {"message": f"Successfully downloaded {limit} images for query '{query}' and notified Zapier."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
