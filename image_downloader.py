@@ -47,7 +47,8 @@ def build_drive_service():
 
 @app.get("/")
 async def root():
-    return HTMLResponse(html)
+    # No need to load credentials just to display HTML.
+    return HTMLResponse(content=html)
 
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
