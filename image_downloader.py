@@ -34,7 +34,8 @@ html = """
 
 @app.get("/")
 async def root():
-    return {"message": "Hello from FastAPI. Use /download-images/ to download images."}
+    # No need to load credentials just to display HTML.
+    return HTMLResponse(content=html)
 
 
 @app.post("/download-images/")
