@@ -19,14 +19,14 @@ def get_service_account_credentials():
         raise ValueError("Service account credentials are not set")
     decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
     service_account_info = json.loads(decoded_credentials)
-    credentials = service_account.Credentials.from_service_account_info(service_account_info)
+    credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
     return credentials
 
-# Example usage with Google Drive API
-def build_drive_service():
-    credentials = get_service_account_credentials()
-    service = build('drive', 'v3', credentials=credentials)
-    return service
+def upload_file_to_drive(service, file_name, file_path, mime_type='image/jpeg'):
+    file_metadata = {'name': file_name}
+    media = MediaFileUpload(file_path, mimetype=mime_type)
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    return file.get('id')
 
 @app.get("/")
 async def root():
@@ -52,11 +52,11 @@ async def root():
 
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"), limit: int = Query(10, description="The number of images to download")):
-    credentials = get_service_account_credentials()
-    service = build('drive', 'v3', credentials=credentials)
+    try:
+        credentials = get_service_account_credentials()
+        service = build('drive', 'v3', credentials=credentials)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        try:
+        with tempfile.TemporaryDirectory() as temp_dir:
             downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
             uploaded_files = []
             for filename in os.listdir(temp_dir):
@@ -64,10 +64,5 @@ async def download_images(query: str = Query(..., description="The search query 
                 file_id = upload_file_to_drive(service, filename, file_path)
                 uploaded_files.append(f"https://drive.google.com/uc?id={file_id}")
             return {"message": "Successfully uploaded images to Google Drive.", "files": uploaded_files}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-
-print(service_account_info)  # Add this line for debugging
-credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=['https://www.googleapis.com/auth/drive'])
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
