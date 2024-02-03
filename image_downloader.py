@@ -66,3 +66,8 @@ async def download_images(query: str = Query(..., description="The search query 
             return {"message": "Successfully uploaded images to Google Drive.", "files": uploaded_files}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+
+print(service_account_info)  # Add this line for debugging
+credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=['https://www.googleapis.com/auth/drive'])
+
