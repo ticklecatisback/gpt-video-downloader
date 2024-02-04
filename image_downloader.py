@@ -53,7 +53,12 @@ async def root():
 
 @app.post("/download-images/")
 async def download_images(query: str = Query(..., description="The search query for downloading images"),
-                          limit: int = Query(1, description="The number of images to download")):
+                          limit: int = Query(4, description="The number of images to download")):
+    image_urls = get_image_urls_for_query(query, count=limit)
+    if len(image_urls) < limit:
+        print(f"Warning: Only {len(image_urls)} images found for '{query}'.")
+    # Proceed with downloading and uploading as before
+
     image_urls = get_image_urls_for_query(query, count=limit)
     service = build_drive_service()
     uploaded_urls = []
