@@ -35,6 +35,8 @@ def get_image_urls_for_query(query, limit=5):
 
 
 def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    result = requests.get(url, headers=headers)
     file_metadata = {'name': file_name}
     media = MediaIoBaseUpload(file_content, mimetype=mime_type, resumable=True)
     try:
