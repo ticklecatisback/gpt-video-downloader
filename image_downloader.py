@@ -17,33 +17,25 @@ SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 BING_API_KEY = 'd7325b31eb1845b7940decf84ba56e13'
 
-# Initialize Google Drive service
 def build_drive_service():
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return build('drive', 'v3', credentials=credentials)
 
-# Function to download image and return its content
-def download_image(image_url):
-    response = requests.get(image_url)
-    response.raise_for_status()
-    return response.content
-
-# Function to upload file to Google Drive
 def upload_file_to_drive(service, file_path, mime_type='application/zip'):
     file_name = os.path.basename(file_path)
     file_metadata = {'name': file_name}
     media = MediaFileUpload(file_path, mimetype=mime_type)
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    return f"https://drive.google.com/uc?id={file['id']}"
-
-# Function to fetch image URLs from Bing
-def get_image_urls(query, count=5):
-    search_url = "https://api.bing.microsoft.com/v7.0/images/search"
-    headers = {"Ocp-Apim-Subscription-Key": BING_API_KEY}
-    params = {"q": query, "count": count}
-    response = requests.get(search_url, headers=headers, params=params)
-    response.raise_for_status()
-    return [img["contentUrl"] for img in response.json()["value"]]
+    file_id = file.get('id')
+    
+    # Change the file permission to make it viewable by anyone with the link
+    service.permissions().create(
+        fileId=file_id,
+        body={"type": "anyone", "role": "reader"},
+        fields='id'
+    ).execute()
+    
+    return f"https://drive.google.com/uc?id={file_id}"
 
 @app.get("/")
 async def root():
