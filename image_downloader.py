@@ -35,17 +35,18 @@ def download_image_in_memory(image_url):
     return BytesIO(response.content)
 
 def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
-    """Uploads a file from memory to Google Drive."""
-    file_metadata = {'name': file_name}
-    media = MediaIoBaseUpload(file_content, mimetype=mime_type, resumable=True)
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    """Uploads a file from a local path to Google Drive."""
+    with open(file_path, "rb") as file_content:
+        file_metadata = {'name': file_name}
+        media = MediaIoBaseUpload(BytesIO(file_content.read()), mimetype=mime_type, resumable=True)
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     # Make the file viewable by anyone with the link
     permission = {
         'type': 'anyone',
         'role': 'reader',
     }
     service.permissions().create(fileId=file.get('id'), body=permission).execute()
-    return f"https://drive.google.com/uc?id={file.get('id')}"
+    return f"https://drive.google.com/uc?id={file['id']}"
 
 @contextlib.contextmanager
 def change_dir(destination):
