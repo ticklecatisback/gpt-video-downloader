@@ -10,6 +10,7 @@ import os
 import tempfile
 import base64
 import contextlib
+import zipfile
 
 app = FastAPI()
 
@@ -18,61 +19,57 @@ SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 BING_API_KEY = 'd7325b31eb1845b7940decf84ba56e13'
 
+# Initialize Google Drive service
 def build_drive_service():
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('drive', 'v3', credentials=credentials)
-    return service
+    return build('drive', 'v3', credentials=credentials)
 
-def download_image_in_memory(image_url):
-    headers = {'User-Agent': 'Your Custom User Agent'}
-    response = requests.get(image_url, headers=headers)
-    response.raise_for_status()  # Ensure the request was successful
-    return BytesIO(response.content)
+# Function to download image and return its content
+def download_image(image_url):
+    response = requests.get(image_url)
+    response.raise_for_status()
+    return response.content
 
-
-def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
+# Function to upload file to Google Drive
+def upload_file_to_drive(service, file_path, mime_type='application/zip'):
+    file_name = os.path.basename(file_path)
     file_metadata = {'name': file_name}
-    media = MediaIoBaseUpload(file_content, mimetype=mime_type)
+    media = MediaFileUpload(file_path, mimetype=mime_type)
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    permission = {'type': 'anyone', 'role': 'reader'}
-    service.permissions().create(fileId=file.get('id'), body=permission).execute()
-    return f"https://drive.google.com/uc?id={file.get('id')}"
+    return f"https://drive.google.com/uc?id={file['id']}"
 
-def get_image_urls_for_query(query, count=5):
+# Function to fetch image URLs from Bing
+def get_image_urls(query, count=5):
     search_url = "https://api.bing.microsoft.com/v7.0/images/search"
     headers = {"Ocp-Apim-Subscription-Key": BING_API_KEY}
     params = {"q": query, "count": count}
     response = requests.get(search_url, headers=headers, params=params)
     response.raise_for_status()
-    search_results = response.json()
-    return [img["contentUrl"] for img in search_results["value"]]
+    return [img["contentUrl"] for img in response.json()["value"]]
 
 @app.get("/")
 async def root():
     return HTMLResponse(content="<h1>Image Uploader to Google Drive</h1>")
 
 @app.post("/download-images/")
-async def download_images(query: str = Query(..., description="The search query for downloading images"),
-                          limit: int = Query(4, description="The number of images to download")):
-    image_urls = get_image_urls_for_query(query, count=limit)
-    if len(image_urls) < limit:
-        print(f"Warning: Only {len(image_urls)} images found for '{query}'.")
-    # Proceed with downloading and uploading as before
-
-    image_urls = get_image_urls_for_query(query, count=limit)
+async def download_images(query: str = Query(...), limit: int = Query(1)):
+    image_urls = get_image_urls(query, count=limit)
     service = build_drive_service()
-    uploaded_urls = []
 
-    for image_url in image_urls:
-        try:
-            file_content = download_image_in_memory(image_url)
-            file_name = os.path.basename(image_url)  # Extract file name from URL
-            uploaded_url = upload_file_to_drive(service, file_name, file_content)
-            uploaded_urls.append(uploaded_url)
-        except requests.exceptions.HTTPError as e:
-            print(f"Failed to download {image_url}: {e}")
-            continue  # Skip this image and continue with the next
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload {image_url}: {str(e)}")
-
-    return {"message": "Images uploaded successfully.", "urls": uploaded_urls}
+    # Download images and save them to a temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = os.path.join(temp_dir, "images.zip")
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for i, url in enumerate(image_urls):
+                try:
+                    img_content = download_image(url)
+                    img_filename = os.path.join(temp_dir, f"image_{i}.jpg")
+                    with open(img_filename, 'wb') as img_file:
+                        img_file.write(img_content)
+                    zipf.write(img_filename, arcname=f"image_{i}.jpg")
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Failed to download or zip image: {str(e)}")
+        
+        # Upload the zip file to Google Drive
+        uploaded_url = upload_file_to_drive(service, zip_path)
+        return {"message": "Zip file uploaded successfully.", "url": uploaded_url}
