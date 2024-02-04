@@ -3,14 +3,12 @@ from fastapi.responses import HTMLResponse
 from bing_image_downloader import downloader
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from io import BytesIO
+from googleapiclient.http import MediaFileUpload
 import requests
 import os
 import tempfile
-import base64
-import contextlib
 import zipfile
+
 
 app = FastAPI()
 
