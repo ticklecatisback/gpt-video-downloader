@@ -59,6 +59,42 @@ def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg
         raise HTTPException(status_code=500, detail=f"Failed to upload {file_name}: {str(error)}")
 
 
+@app.post("/test-upload/")
+async def test_upload():
+    service = build_drive_service()
+    test_image_url = "https://cat-world.com/wp-content/uploads/2017/06/spotted-tabby-1.jpg"  # Replace this with a real URL to a test image
+
+    # Simulate downloading an image to memory
+    image_content = requests.get(test_image_url).content
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, "test-image.zip")
+    
+    # Create a zip file with the test image
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        image_name = "test-image.jpg"
+        image_path = os.path.join(temp_dir, image_name)
+        with open(image_path, 'wb') as image_file:
+            image_file.write(image_content)
+        zipf.write(image_path, arcname=image_name)
+    
+    # Upload the zip file to Google Drive
+    file_metadata = {'name': 'test-image.zip'}
+    media = MediaFileUpload(zip_filename, mimetype='application/zip')
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    file_id = file.get('id')
+
+    # Set the file to be publicly readable
+    permission = {
+        'type': 'anyone',
+        'role': 'reader',
+    }
+    service.permissions().create(fileId=file_id, body=permission).execute()
+    drive_url = f"https://drive.google.com/uc?id={file_id}"
+    
+    # Clean up the temporary directory
+    shutil.rmtree(temp_dir)
+
+    return {"message": "Test image zip uploaded successfully.", "url": drive_url}
 
 
 @app.get("/")
