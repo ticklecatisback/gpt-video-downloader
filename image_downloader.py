@@ -38,9 +38,14 @@ def download_image_in_memory(image_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
     }
-    response = requests.get(image_url, headers=headers)
-    response.raise_for_status()  # Ensure the request was successful
-    return BytesIO(response.content)
+    try:
+        response = requests.get(image_url, headers=headers)
+        response.raise_for_status()  # Ensure the request was successful
+        return BytesIO(response.content)
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to download {image_url}: {e}")
+        return None
+
 
 
 def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
@@ -111,19 +116,21 @@ async def download_images(query: str = Query(..., description="The search query 
         zip_filename = os.path.join(temp_dir, "images.zip")
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, image_url in enumerate(image_urls, start=1):
-                try:
-                    image_content = requests.get(image_url).content
-                    image_name = f"image_{i}.jpg"
-                    image_path = os.path.join(temp_dir, image_name)
-                    with open(image_path, 'wb') as image_file:
-                        image_file.write(image_content)
-                    zipf.write(image_path, arcname=image_name)
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Failed to download {image_url}: {str(e)}")
-        
+                file_content = download_image_in_memory(image_url)
+                if file_content is None:
+                    print(f"Skipping inaccessible image: {image_url}")
+                    continue  # Skip this image and proceed to the next
+
+                image_name = f"image_{i}.jpg"
+                image_path = os.path.join(temp_dir, image_name)
+                with open(image_path, 'wb') as image_file:
+                    image_file.write(file_content.read())  # Adjusted to read from BytesIO object
+                zipf.write(image_path, arcname=image_name)
+
         service = build_drive_service()
         file_metadata = {'name': 'images.zip'}
         media = MediaFileUpload(zip_filename, mimetype='application/zip')
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
         return {"message": "Zip file uploaded successfully.", "url": drive_url}
+
