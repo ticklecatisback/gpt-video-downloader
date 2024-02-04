@@ -24,9 +24,11 @@ def build_drive_service():
     return service
 
 def download_image_in_memory(image_url):
-    response = requests.get(image_url)
+    headers = {'User-Agent': 'Your Custom User Agent'}
+    response = requests.get(image_url, headers=headers)
     response.raise_for_status()  # Ensure the request was successful
     return BytesIO(response.content)
+
 
 def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
     file_metadata = {'name': file_name}
@@ -57,11 +59,14 @@ async def download_images(query: str = Query(..., description="The search query 
     uploaded_urls = []
 
     for image_url in image_urls:
-        file_content = download_image_in_memory(image_url)
-        file_name = os.path.basename(image_url)  # Extract file name from URL
         try:
+            file_content = download_image_in_memory(image_url)
+            file_name = os.path.basename(image_url)  # Extract file name from URL
             uploaded_url = upload_file_to_drive(service, file_name, file_content)
             uploaded_urls.append(uploaded_url)
+        except requests.exceptions.HTTPError as e:
+            print(f"Failed to download {image_url}: {e}")
+            continue  # Skip this image and continue with the next
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload {image_url}: {str(e)}")
 
