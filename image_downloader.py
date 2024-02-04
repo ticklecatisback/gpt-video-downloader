@@ -35,11 +35,10 @@ def download_image_in_memory(image_url):
     return BytesIO(response.content)
 
 def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
-    """Uploads a file from a local path to Google Drive."""
-    with open(file_path, "rb") as file_content:
-        file_metadata = {'name': file_name}
-        media = MediaIoBaseUpload(BytesIO(file_content.read()), mimetype=mime_type, resumable=True)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    """Uploads a file from memory to Google Drive."""
+    file_metadata = {'name': file_name}
+    media = MediaIoBaseUpload(file_content, mimetype=mime_type, resumable=True)
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     # Make the file viewable by anyone with the link
     permission = {
         'type': 'anyone',
@@ -67,15 +66,18 @@ async def download_images(query: str = Query(..., description="The search query 
                           limit: int = Query(1, description="The number of images to download")):
     service = build_drive_service()
     uploaded_urls = []
-    with tempfile.TemporaryDirectory() as temp_dir:
-        with change_dir(temp_dir):  # This ensures operations happen within the temp directory
-            downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
-            for filename in os.listdir(temp_dir):
-                file_path = os.path.join(temp_dir, filename)
-                file_content = download_image_in_memory(file_path)
-                try:
-                    uploaded_url = upload_file_to_drive(service, filename, file_content)
-                    uploaded_urls.append(uploaded_url)
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=str(e))
+
+    # Assume you have a function that fetches image URLs based on the query
+    image_urls = get_image_urls_for_query(query)
+
+    for image_url in image_urls[:limit]:
+        file_content = download_image_in_memory(image_url)
+        file_name = os.path.basename(image_url)
+        try:
+            uploaded_url = upload_file_to_drive(service, file_name, file_content)
+            uploaded_urls.append(uploaded_url)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
     return {"message": "Images uploaded successfully.", "urls": uploaded_urls}
+}
