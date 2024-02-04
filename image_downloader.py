@@ -42,24 +42,21 @@ async def root():
     return HTMLResponse(content="<h1>Image Uploader to Google Drive</h1>")
 
 @app.post("/download-images/")
-async def download_images(query: str = Query(...), limit: int = Query(1)):
-    image_urls = get_image_urls(query, count=limit)
+async def download_images(query: str = Query(..., description="The search query for downloading images"),
+                          limit: int = Query(1, description="The number of images to download")):
+    # Correct function name used here
+    image_urls = get_image_urls_for_query(query, count=limit)
     service = build_drive_service()
+    uploaded_urls = []
 
-    # Download images and save them to a temporary directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        zip_path = os.path.join(temp_dir, "images.zip")
-        with zipfile.ZipFile(zip_path, 'w') as zipf:
-            for i, url in enumerate(image_urls):
-                try:
-                    img_content = download_image(url)
-                    img_filename = os.path.join(temp_dir, f"image_{i}.jpg")
-                    with open(img_filename, 'wb') as img_file:
-                        img_file.write(img_content)
-                    zipf.write(img_filename, arcname=f"image_{i}.jpg")
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Failed to download or zip image: {str(e)}")
-        
-        # Upload the zip file to Google Drive
-        uploaded_url = upload_file_to_drive(service, zip_path)
-        return {"message": "Zip file uploaded successfully.", "url": uploaded_url}
+    for image_url in image_urls:
+        file_content = download_image_in_memory(image_url)
+        file_name = os.path.basename(image_url)  # Extract file name from URL
+        try:
+            uploaded_url = upload_file_to_drive(service, file_name, file_content)
+            uploaded_urls.append(uploaded_url)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload {image_url}: {str(e)}")
+
+    return {"message": "Images uploaded successfully.", "urls": uploaded_urls}
+
