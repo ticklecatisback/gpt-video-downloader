@@ -12,6 +12,7 @@ import os
 import tempfile
 import base64
 import zipfile
+import shutil
 
 app = FastAPI()
 
