@@ -9,6 +9,7 @@ import requests
 import os
 import tempfile
 import base64
+import contextlib
 
 app = FastAPI()
 
