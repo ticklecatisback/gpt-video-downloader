@@ -38,16 +38,25 @@ def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg
     media = MediaIoBaseUpload(file_content, mimetype=mime_type, resumable=True)
     try:
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        file_id = file.get('id')
+
         # Set the file to be publicly readable
         permission = {
             'type': 'anyone',
             'role': 'reader',
         }
-        service.permissions().create(fileId=file.get('id'), body=permission).execute()
-        return f"https://drive.google.com/uc?id={file.get('id')}"
+        service.permissions().create(fileId=file_id, body=permission).execute()
+
+        # Optional: Check if the permission is applied correctly
+        permissions = service.permissions().list(fileId=file_id).execute()
+        if not any(perm['type'] == 'anyone' and perm['role'] == 'reader' for perm in permissions.get('permissions', [])):
+            raise Exception("Failed to set file as publicly readable")
+
+        return f"https://drive.google.com/uc?id={file_id}"
     except HttpError as error:
         print(f'An error occurred: {error}')
         raise HTTPException(status_code=500, detail=f"Failed to upload {file_name}: {str(error)}")
+
 
 
 @app.get("/")
