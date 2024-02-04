@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from googleapiclient.http import MediaFileUpload
+from googleapiclient.errors import HttpError
 from io import BytesIO
 import os
 import tempfile
@@ -31,6 +32,23 @@ def get_image_urls_for_query(query, limit=5):
     response.raise_for_status()
     search_results = response.json()
     return [img["contentUrl"] for img in search_results["value"]]
+
+def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg'):
+    file_metadata = {'name': file_name}
+    media = MediaIoBaseUpload(file_content, mimetype=mime_type, resumable=True)
+    try:
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        # Set the file to be publicly readable
+        permission = {
+            'type': 'anyone',
+            'role': 'reader',
+        }
+        service.permissions().create(fileId=file.get('id'), body=permission).execute()
+        return f"https://drive.google.com/uc?id={file.get('id')}"
+    except HttpError as error:
+        print(f'An error occurred: {error}')
+        raise HTTPException(status_code=500, detail=f"Failed to upload {file_name}: {str(error)}")
+
 
 @app.get("/")
 async def root():
