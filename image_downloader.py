@@ -46,7 +46,12 @@ def upload_file_to_drive(service, file_name, file_content, mime_type='image/jpeg
             'type': 'anyone',
             'role': 'reader',
         }
-        service.permissions().create(fileId=file_id, body=permission).execute()
+        try:
+            service.permissions().create(fileId=file_id, body=permission).execute()
+        except HttpError as error:
+            print(f"Failed to set permission: {error}")
+            raise
+
 
         # Optional: Check if the permission is applied correctly
         permissions = service.permissions().list(fileId=file_id).execute()
