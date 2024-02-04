@@ -56,17 +56,6 @@ def change_dir(destination):
     finally:
         os.chdir(cwd)
 
-@contextlib.contextmanager
-def change_dir(destination):
-    """Change the working directory temporarily."""
-    try:
-        cwd = os.getcwd()
-        os.chdir(destination)
-        yield
-    finally:
-        os.chdir(cwd)
-
-
 @app.get("/")
 async def root():
     return HTMLResponse(content="<h1>Image Uploader to Google Drive</h1>")
@@ -77,14 +66,14 @@ async def download_images(query: str = Query(..., description="The search query 
     service = build_drive_service()
     uploaded_urls = []
     with tempfile.TemporaryDirectory() as temp_dir:
-        with change_dir(temp_dir):
-        downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
-        for filename in os.listdir(temp_dir):
-            file_path = os.path.join(temp_dir, filename)
-            file_content = download_image_in_memory(file_path)
-            try:
-                uploaded_url = upload_file_to_drive(service, filename, file_content)
-                uploaded_urls.append(uploaded_url)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+        with change_dir(temp_dir):  # This ensures operations happen within the temp directory
+            downloader.download(query, limit=limit, output_dir=temp_dir, adult_filter_off=True, force_replace=False, timeout=60)
+            for filename in os.listdir(temp_dir):
+                file_path = os.path.join(temp_dir, filename)
+                file_content = download_image_in_memory(file_path)
+                try:
+                    uploaded_url = upload_file_to_drive(service, filename, file_content)
+                    uploaded_urls.append(uploaded_url)
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=str(e))
     return {"message": "Images uploaded successfully.", "urls": uploaded_urls}
