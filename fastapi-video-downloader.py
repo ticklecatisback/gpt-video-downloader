@@ -26,7 +26,7 @@ def build_drive_service():
 
 executor = ThreadPoolExecutor(max_workers=5)
 
-async def download_video_async(video_url, output_path):
+async def download_video(video_url, output_path):
     loop = asyncio.get_running_loop()
     yt = YouTube(video_url)
     print(f"Downloading video: {yt.title}")
