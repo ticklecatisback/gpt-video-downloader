@@ -30,6 +30,14 @@ def build_drive_service():
 
 executor = ThreadPoolExecutor(max_workers=5)
 
+async def get_video_urls_for_query(query: str, limit: int = 5):
+    videos_search = VideosSearch(query, limit=limit)
+    results = await videos_search.next()
+    # Extract video URLs from the search results
+    video_urls = [result['link'] for result in results['result']]
+    return video_urls
+
+
 def download_video(video_url: str):
     # Command to download video
     command = ['youtube-dl', video_url]
@@ -66,11 +74,12 @@ async def upload_to_drive(service, file_path):
 
 
 
+
 @app.post("/download-videos/")
 async def download_videos(query: str = Query(..., description="The search query for downloading videos"), 
                           limit: int = Query(1, description="The number of videos to download")):
     # You'll need to implement or adjust get_video_urls_for_query to fetch video URLs
-    video_urls = get_video_urls_for_query(query, limit=limit)
+    video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
     uploaded_urls = []
 
