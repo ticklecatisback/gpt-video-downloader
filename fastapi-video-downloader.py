@@ -27,24 +27,27 @@ def build_drive_service():
 
 executor = ThreadPoolExecutor(max_workers=5)
 
-async def download_video(video_url, output_path):
-    loop = asyncio.get_running_loop()
-    # Using youtube-dl to download the video to the specified output path
-    await loop.run_in_executor(executor, lambda: subprocess.run(['youtube-dl', video_url, '-o', f'{output_path}/%(title)s.%(ext)s'], check=True))
+def download_video(video_url: str):
+    # Command to download video
+    command = ['youtube-dl', video_url]
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading video: {e.output}")
+        return None
 
-async def search_and_download_videos(search_query, output_path, max_results=5):
-    # Perform a search using youtubesearchpython
-    videos_search = VideosSearch(search_query, limit=max_results)
-    results = videos_search.result()['result']
-    
-    # Prepare a list of tasks for downloading found videos
-    tasks = []
-    for video in results:
-        video_url = video['link']
-        tasks.append(download_video(video_url, output_path))
-    
-    # Execute all download tasks concurrently
-    await asyncio.gather(*tasks)
+
+def download_video_in_memory(direct_video_url: str):
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    try:
+        response = requests.get(direct_video_url, headers=headers)
+        response.raise_for_status()  # Ensures we raise exceptions for bad responses
+        return BytesIO(response.content)
+    except requests.RequestException as e:
+        print(f"Error downloading video content: {e}")
+        return None
+
 
 async def zip_videos(directory):
     zip_path = os.path.join(directory, "videos.zip")
@@ -58,35 +61,3 @@ async def upload_to_drive(service, file_path):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"https://drive.google.com/uc?id={file.get('id')}"
 
-@app.post("/upload-searched-videos/")
-async def upload_searched_videos(search_query: str, max_results: int = 5):
-    service = build_drive_service()
-
-    # Temporary directory to store downloaded videos
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Your code to search and download videos goes here
-        # Example for downloading a single video (extend this to search and download multiple videos)
-        yt = YouTube("https://www.youtube.com/watch?v=aqz-KE-bpKQ")
-        video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-        if video_stream:
-            video_stream.download(output_path=temp_dir)
-            print(f"Downloaded video: {yt.title}")
-        else:
-            print("No suitable stream found.")
-
-        # Zip the downloaded videos
-        zip_filename = os.path.join(temp_dir, "videos.zip")
-        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(temp_dir):
-                for file in files:
-                    zipf.write(os.path.join(root, file), arcname=file)
-
-        # Upload the zip file to Google Drive
-        file_metadata = {'name': os.path.basename(zip_filename)}
-        media = MediaFileUpload(zip_filename, mimetype='application/zip')
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        # Set permission to make it publicly accessible
-        service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
-        drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
-
-    return {"message": "Zip file uploaded successfully.", "url": drive_url}
