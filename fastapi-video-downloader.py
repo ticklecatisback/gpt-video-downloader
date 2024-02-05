@@ -10,6 +10,7 @@ import zipfile
 import shutil
 import tempfile
 from uuid import uuid4
+from youtube_search import YoutubeSearch
 
 app = FastAPI()
 task_results = {}
@@ -70,8 +71,10 @@ async def upload_to_drive(service, file_path):
 @app.post("/upload-searched-videos/")
 async def upload_searched_videos(search_query: str, max_results: int = 5):
     service = build_drive_service()
-    search = Search(search_query)
-    video_urls = [video.watch_url for video in search.results[:max_results]]
+    results = YoutubeSearch(search_query, max_results=max_results).to_json()
+    results = json.loads(results)['videos']
+    
+    video_urls = [f"https://www.youtube.com/watch?v={video['id']}" for video in results]
 
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
