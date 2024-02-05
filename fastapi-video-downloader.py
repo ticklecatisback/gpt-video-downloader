@@ -67,9 +67,12 @@ async def upload_to_drive(service, file_path):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"https://drive.google.com/uc?id={file.get('id')}"
 
-@app.post("/upload-zipped-videos/")
-async def upload_zipped_videos(video_urls: list[str]):
+@app.post("/upload-searched-videos/")
+async def upload_searched_videos(search_query: str, max_results: int = 5):
     service = build_drive_service()
+    search = Search(search_query)
+    video_urls = [video.watch_url for video in search.results[:max_results]]
+
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
         with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -77,22 +80,17 @@ async def upload_zipped_videos(video_urls: list[str]):
                 yt = YouTube(url)
                 video_stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
                 if video_stream:
-                    # Download video to temporary directory
                     video_path = video_stream.download(output_path=temp_dir)
-                    # Add the downloaded video to the zip file
                     zipf.write(video_path, arcname=os.path.basename(video_path))
-                    
+
         # Upload the zip file to Google Drive
         file_metadata = {'name': 'videos.zip'}
         media = MediaFileUpload(zip_filename, mimetype='application/zip')
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        permission = {
-            'type': 'anyone',
-            'role': 'reader',
-        }
+        permission = {'type': 'anyone', 'role': 'reader'}
         service.permissions().create(fileId=file.get('id'), body=permission).execute()
         drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
-        
+
     return {"message": "Zip file uploaded successfully.", "url": drive_url}
 
 
