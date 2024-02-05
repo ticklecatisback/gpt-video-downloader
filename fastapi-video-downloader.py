@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Query
 from pytube import YouTube, Search
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -14,6 +14,9 @@ from youtubesearchpython import VideosSearch
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
+import requests
+from io import BytesIO
+
 
 app = FastAPI()
 
