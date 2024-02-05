@@ -11,6 +11,7 @@ import shutil
 import tempfile
 from uuid import uuid4
 from youtubesearchpython import VideosSearch
+import asyncio
 
 app = FastAPI()
 task_results = {}
