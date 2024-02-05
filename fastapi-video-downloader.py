@@ -19,44 +19,35 @@ SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def build_drive_service():
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return build('drive', 'v3', credentials=credentials)
 
-async def download_video(video_url, output_path, delay=1):
-    try:
-        yt = YouTube(video_url)
-        print(f"Downloading video: {yt.title}")
-        video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-        if video_stream:
-            video_stream.download(output_path=output_path)
-            await time.sleep(delay)  # Async sleep to avoid hitting any rate limits or for polite scraping
-        else:
-            print(f"No suitable video stream found for: {yt.title}")
-    except Exception as e:
-        print(f"Error downloading video {yt.title}: {e}")
+async def download_video(video_url, output_path):
+    yt = YouTube(video_url)
+    print(f"Downloading video: {yt.title}")
+    video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+    if video_stream:
+        video_stream.download(output_path=output_path)
+    else:
+        print(f"No suitable video stream found for: {yt.title}")
 
-
-async def search_and_download_videos(search_query, output_path, max_results=5, delay=1):
+async def search_and_download_videos(search_query, output_path, max_results=5):
     videos_search = VideosSearch(search_query, limit=max_results)
     results = videos_search.result()['result']
     
-    downloaded_count = 0
+    tasks = []
     for video in results:
-        if downloaded_count >= max_results:
-            break
         video_url = f"https://www.youtube.com/watch?v={video['id']}"
-        await download_video(video_url, output_path, delay)
-        downloaded_count += 1
-
+        tasks.append(download_video(video_url, output_path))
+    
+    await asyncio.gather(*tasks)
 
 async def zip_videos(directory):
     zip_path = os.path.join(directory, "videos.zip")
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, _, files in os.walk(directory):
             for file in files:
-                if file != "videos.zip":  # Avoid including the zip file itself
-                    zipf.write(os.path.join(root, file), arcname=file)
+                zipf.write(os.path.join(root, file), arcname=file)
     return zip_path
 
 async def upload_to_drive(service, file_path):
@@ -68,14 +59,12 @@ async def upload_to_drive(service, file_path):
 @app.post("/upload-searched-videos/")
 async def upload_searched_videos(search_query: str, max_results: int = 5):
     service = build_drive_service()
-    
-    # This block stays the same
     with tempfile.TemporaryDirectory() as temp_dir:
-        zip_filename = os.path.join(temp_dir, "videos.zip")
         await search_and_download_videos(search_query, temp_dir, max_results)
+        zip_filename = await zip_videos(temp_dir)
         
         # Upload the zip file to Google Drive
-        file_metadata = {'name': 'videos.zip'}
+        file_metadata = {'name': os.path.basename(zip_filename)}
         media = MediaFileUpload(zip_filename, mimetype='application/zip')
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         permission = {'type': 'anyone', 'role': 'reader'}
@@ -83,27 +72,3 @@ async def upload_searched_videos(search_query: str, max_results: int = 5):
         drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
 
     return {"message": "Zip file uploaded successfully.", "url": drive_url}
-
-
-
-
-async def background_process(task_id, search_query, output_path, max_results, delay, service, cleanup_dir=False):
-    try:
-        await search_and_download_videos(search_query, output_path, max_results, delay)
-        zip_path = await zip_videos(output_path)
-        drive_url = await upload_to_drive(service, zip_path)
-        task_results[task_id] = drive_url  # Store the result using the task ID
-    finally:
-        if cleanup_dir:
-            shutil.rmtree(output_path)
-
-@app.get("/task_status/{task_id}")
-async def task_status(task_id: str):
-    if task_id in task_results:
-        return {"status": "completed", "drive_url": task_results[task_id]}
-    else:
-        return {"status": "in_progress"}
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
