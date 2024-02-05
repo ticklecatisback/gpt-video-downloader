@@ -23,12 +23,15 @@ def build_drive_service():
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return build('drive', 'v3', credentials=credentials)
 
-async def download_video(video_url, output_path):
+executor = ThreadPoolExecutor(max_workers=5)
+
+async def download_video_async(video_url, output_path):
+    loop = asyncio.get_running_loop()
     yt = YouTube(video_url)
     print(f"Downloading video: {yt.title}")
     video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
     if video_stream:
-        video_stream.download(output_path=output_path)
+        await loop.run_in_executor(executor, lambda: video_stream.download(output_path=output_path))
     else:
         print(f"No suitable video stream found for: {yt.title}")
 
