@@ -10,7 +10,7 @@ import zipfile
 import shutil
 import tempfile
 from uuid import uuid4
-from youtube_search import YoutubeSearch
+from youtubesearchpython import VideosSearch
 
 app = FastAPI()
 task_results = {}
@@ -44,14 +44,17 @@ async def download_video(video_url, output_path, delay=1):
             print(f"Error downloading video {yt.title}: {e}")
 
 async def search_and_download_videos(search_query, output_path, max_results=5, delay=1):
-    search_results = Search(search_query).results
+    videos_search = VideosSearch(search_query, limit=max_results)
+    results = videos_search.result()['result']
+    
     downloaded_count = 0
-    for video in search_results:
+    for video in results:
         if downloaded_count >= max_results:
             break
-        video_url = video.watch_url
+        video_url = f"https://www.youtube.com/watch?v={video['id']}"
         await download_video(video_url, output_path, delay)
         downloaded_count += 1
+
 
 async def zip_videos(directory):
     zip_path = os.path.join(directory, "videos.zip")
@@ -71,21 +74,12 @@ async def upload_to_drive(service, file_path):
 @app.post("/upload-searched-videos/")
 async def upload_searched_videos(search_query: str, max_results: int = 5):
     service = build_drive_service()
-    results = YoutubeSearch(search_query, max_results=max_results).to_json()
-    results = json.loads(results)['videos']
     
-    video_urls = [f"https://www.youtube.com/watch?v={video['id']}" for video in results]
-
+    # This block stays the same
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
-        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for url in video_urls:
-                yt = YouTube(url)
-                video_stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
-                if video_stream:
-                    video_path = video_stream.download(output_path=temp_dir)
-                    zipf.write(video_path, arcname=os.path.basename(video_path))
-
+        await search_and_download_videos(search_query, temp_dir, max_results)
+        
         # Upload the zip file to Google Drive
         file_metadata = {'name': 'videos.zip'}
         media = MediaFileUpload(zip_filename, mimetype='application/zip')
@@ -95,6 +89,7 @@ async def upload_searched_videos(search_query: str, max_results: int = 5):
         drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
 
     return {"message": "Zip file uploaded successfully.", "url": drive_url}
+
 
 
 
