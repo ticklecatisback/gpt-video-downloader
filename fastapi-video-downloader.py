@@ -32,11 +32,13 @@ executor = ThreadPoolExecutor(max_workers=5)
 
 async def get_video_urls_for_query(query: str, limit: int = 5):
     videos_search = VideosSearch(query, limit=limit)
-    loop = asyncio.get_running_loop()
-    # Use loop.run_in_executor to run the synchronous code in a separate thread
-    results = await loop.run_in_executor(None, videos_search.next)
-    video_urls = [result['link'] for result in results['result']]
-    return video_urls
+    await videos_search.next()  # Assuming this updates videos_search.results
+    if videos_search.results:  # This line is pseudo-code; adjust based on actual attribute
+        video_urls = [result['link'] for result in videos_search.results]  # Adjust based on actual structure
+        return video_urls
+    else:
+        return []
+
 
 
 def download_video(video_url: str):
