@@ -61,10 +61,32 @@ async def upload_to_drive(service, file_path):
 @app.post("/upload-searched-videos/")
 async def upload_searched_videos(search_query: str, max_results: int = 5):
     service = build_drive_service()
+
+    # Temporary directory to store downloaded videos
     with tempfile.TemporaryDirectory() as temp_dir:
-        await search_and_download_videos(search_query, temp_dir, max_results)
-        zip_filename = await zip_videos(temp_dir)
-        
-        drive_url = await upload_to_drive(service, zip_filename)
-        
+        # Your code to search and download videos goes here
+        # Example for downloading a single video (extend this to search and download multiple videos)
+        yt = YouTube("https://www.youtube.com/watch?v=aqz-KE-bpKQ")
+        video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+        if video_stream:
+            video_stream.download(output_path=temp_dir)
+            print(f"Downloaded video: {yt.title}")
+        else:
+            print("No suitable stream found.")
+
+        # Zip the downloaded videos
+        zip_filename = os.path.join(temp_dir, "videos.zip")
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(temp_dir):
+                for file in files:
+                    zipf.write(os.path.join(root, file), arcname=file)
+
+        # Upload the zip file to Google Drive
+        file_metadata = {'name': os.path.basename(zip_filename)}
+        media = MediaFileUpload(zip_filename, mimetype='application/zip')
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        # Set permission to make it publicly accessible
+        service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
+        drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
+
     return {"message": "Zip file uploaded successfully.", "url": drive_url}
