@@ -68,12 +68,19 @@ async def upload_to_drive(service, file_path):
     return f"https://drive.google.com/uc?id={file.get('id')}"
 
 @app.post("/download_and_upload_videos/")
-async def download_and_upload_videos(background_tasks: BackgroundTasks, search_query: str, max_results: int = 5, delay: int = 1):
-    temp_dir = tempfile.mkdtemp()
-    service = build_drive_service()
-    task_id = str(uuid4())  # Generate a unique task ID
-    background_tasks.add_task(background_process, task_id, search_query, temp_dir, max_results, delay, service, cleanup_dir=True)
-    return {"message": "Download and upload started", "task_id": task_id}
+async def download_video(video_url, output_path, delay=1):
+    try:
+        yt = YouTube(video_url)
+        print(f"Attempting to download video: {yt.title}")
+        video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+        if video_stream:
+            video_stream.download(output_path=output_path)
+            await time.sleep(delay)
+        else:
+            print(f"No suitable video stream found for: {yt.title}")
+    except Exception as e:
+        print(f"Error downloading video {yt.title}: {e}")
+
 
 async def background_process(task_id, search_query, output_path, max_results, delay, service, cleanup_dir=False):
     try:
