@@ -67,19 +67,22 @@ async def upload_to_drive(service, file_path):
 
 @app.post("/download_and_upload_videos/")
 async def download_and_upload_videos(background_tasks: BackgroundTasks, search_query: str, max_results: int = 5, delay: int = 1):
-    # Use tempfile.TemporaryDirectory() for the output_path
-    with tempfile.TemporaryDirectory() as temp_dir:
-        service = build_drive_service()
-        # Pass temp_dir as the output_path and remove os.makedirs(output_path, exist_ok=True)
-        background_tasks.add_task(background_process, search_query, temp_dir, max_results, delay, service)
+    temp_dir = tempfile.mkdtemp()  # Create a temporary directory
+    service = build_drive_service()
+    background_tasks.add_task(background_process, search_query, temp_dir, max_results, delay, service, cleanup_dir=True)
     return {"message": "Download and upload started", "search_query": search_query}
 
-async def background_process(search_query, output_path, max_results, delay, service):
-    await search_and_download_videos(search_query, output_path, max_results, delay)
-    zip_path = await zip_videos(output_path)
-    drive_url = await upload_to_drive(service, zip_path)
-    print(f"Uploaded zip to Google Drive: {drive_url}")
-    # No need to manually remove the directory, as TemporaryDirectory() cleans up automatically
+# Add an additional parameter `cleanup_dir` to handle directory cleanup
+async def background_process(search_query, output_path, max_results, delay, service, cleanup_dir=False):
+    try:
+        await search_and_download_videos(search_query, output_path, max_results, delay)
+        zip_path = await zip_videos(output_path)
+        drive_url = await upload_to_drive(service, zip_path)
+        print(f"Uploaded zip to Google Drive: {drive_url}")
+    finally:
+        if cleanup_dir:
+            shutil.rmtree(output_path)  # Ensure cleanup after process
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
