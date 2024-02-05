@@ -71,21 +71,28 @@ async def upload_to_drive(service, file_path):
 async def upload_zipped_videos(video_urls: list[str]):
     service = build_drive_service()
     with tempfile.TemporaryDirectory() as temp_dir:
-        zip_filename = f"{temp_dir}/videos.zip"
-        with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            for i, video_url in enumerate(video_urls):
-                video_content = download_video(video_url)
-                if video_content:
-                    video_name = f"video_{i}.mp4"
-                    zipf.writestr(video_name, video_content.getvalue())
+        zip_filename = os.path.join(temp_dir, "videos.zip")
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for url in video_urls:
+                yt = YouTube(url)
+                video_stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
+                if video_stream:
+                    # Download video to temporary directory
+                    video_path = video_stream.download(output_path=temp_dir)
+                    # Add the downloaded video to the zip file
+                    zipf.write(video_path, arcname=os.path.basename(video_path))
+                    
         # Upload the zip file to Google Drive
-        with open(zip_filename, 'rb') as zipf:
-            file_metadata = {'name': 'videos.zip'}
-            media = MediaIoBaseUpload(zipf, mimetype='application/zip', resumable=True)
-            file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-            permission = {'type': 'anyone', 'role': 'reader'}
-            service.permissions().create(fileId=file.get('id'), body=permission).execute()
-            drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
+        file_metadata = {'name': 'videos.zip'}
+        media = MediaFileUpload(zip_filename, mimetype='application/zip')
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        permission = {
+            'type': 'anyone',
+            'role': 'reader',
+        }
+        service.permissions().create(fileId=file.get('id'), body=permission).execute()
+        drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
+        
     return {"message": "Zip file uploaded successfully.", "url": drive_url}
 
 
