@@ -9,8 +9,10 @@ import uvicorn
 import zipfile
 import shutil
 import tempfile
+from uuid import uuid4
 
 app = FastAPI()
+task_results = {}
 
 SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
 SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -67,21 +69,28 @@ async def upload_to_drive(service, file_path):
 
 @app.post("/download_and_upload_videos/")
 async def download_and_upload_videos(background_tasks: BackgroundTasks, search_query: str, max_results: int = 5, delay: int = 1):
-    temp_dir = tempfile.mkdtemp()  # Create a temporary directory
+    temp_dir = tempfile.mkdtemp()
     service = build_drive_service()
-    background_tasks.add_task(background_process, search_query, temp_dir, max_results, delay, service, cleanup_dir=True)
-    return {"message": "Download and upload started", "search_query": search_query}
+    task_id = str(uuid4())  # Generate a unique task ID
+    background_tasks.add_task(background_process, task_id, search_query, temp_dir, max_results, delay, service, cleanup_dir=True)
+    return {"message": "Download and upload started", "task_id": task_id}
 
-# Add an additional parameter `cleanup_dir` to handle directory cleanup
-async def background_process(search_query, output_path, max_results, delay, service, cleanup_dir=False):
+async def background_process(task_id, search_query, output_path, max_results, delay, service, cleanup_dir=False):
     try:
         await search_and_download_videos(search_query, output_path, max_results, delay)
         zip_path = await zip_videos(output_path)
         drive_url = await upload_to_drive(service, zip_path)
-        print(f"Uploaded zip to Google Drive: {drive_url}")
+        task_results[task_id] = drive_url  # Store the result using the task ID
     finally:
         if cleanup_dir:
-            shutil.rmtree(output_path)  # Ensure cleanup after process
+            shutil.rmtree(output_path)
+
+@app.get("/task_status/{task_id}")
+async def task_status(task_id: str):
+    if task_id in task_results:
+        return {"status": "completed", "drive_url": task_results[task_id]}
+    else:
+        return {"status": "in_progress"}
 
 
 if __name__ == "__main__":
