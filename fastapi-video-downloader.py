@@ -61,3 +61,41 @@ async def upload_to_drive(service, file_path):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"https://drive.google.com/uc?id={file.get('id')}"
 
+
+
+@app.post("/download-videos/")
+async def download_videos(query: str = Query(..., description="The search query for downloading videos"), 
+                          limit: int = Query(1, description="The number of videos to download")):
+    # You'll need to implement or adjust get_video_urls_for_query to fetch video URLs
+    video_urls = get_video_urls_for_query(query, limit=limit)
+    service = build_drive_service()
+    uploaded_urls = []
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_filename = os.path.join(temp_dir, "videos.zip")
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for i, video_url in enumerate(video_urls):
+                file_content = download_video_in_memory(video_url)
+                if not file_content:
+                    continue  # Skip this video and proceed to the next
+                
+                video_name = f"video_{i}.mp4"  # Adjust the extension based on actual video format
+                video_path = os.path.join(temp_dir, video_name)
+                with open(video_path, 'wb') as video_file:
+                    video_file.write(file_content.getbuffer())  # Write the video content to a file
+                
+                zipf.write(video_path, arcname=video_name)  # Add the video to the zip file
+
+        # Upload the zip file to Google Drive with adjusted MIME type for videos
+        file_metadata = {'name': 'videos.zip'}
+        media = MediaFileUpload(zip_filename, mimetype='application/zip')
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        permission = {'type': 'anyone', 'role': 'reader'}
+        service.permissions().create(fileId=file.get('id'), body=permission).execute()
+        drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
+        
+        return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
+
+# Adjust or add any necessary functions for video handling, such as get_video_urls_for_query and download_video_in_memory
+
+# Your root function remains unchanged
