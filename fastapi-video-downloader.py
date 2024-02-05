@@ -69,9 +69,13 @@ async def upload_to_drive(service, file_path):
 
 @app.post("/download_and_upload_videos/")
 async def download_video(video_url, output_path, delay=1):
+    yt = None  # Initialize yt to None before the try block
     try:
         yt = YouTube(video_url)
-        print(f"Attempting to download video: {yt.title}")
+        if yt.is_live:  # Assuming is_live checking is implemented elsewhere or removed
+            print(f"Skipping live video: {yt.title}")
+            return
+        print(f"Downloading video: {yt.title}")
         video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
         if video_stream:
             video_stream.download(output_path=output_path)
@@ -79,7 +83,12 @@ async def download_video(video_url, output_path, delay=1):
         else:
             print(f"No suitable video stream found for: {yt.title}")
     except Exception as e:
-        print(f"Error downloading video {yt.title}: {e}")
+        # Check if yt has been assigned before trying to access its attributes
+        if yt:
+            print(f"Error downloading video {yt.title}: {e}")
+        else:
+            print(f"Error initializing YouTube object for URL {video_url}: {e}")
+
 
 
 async def background_process(task_id, search_query, output_path, max_results, delay, service, cleanup_dir=False):
