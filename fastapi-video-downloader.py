@@ -26,22 +26,16 @@ def build_drive_service():
 async def download_video(video_url, output_path, delay=1):
     try:
         yt = YouTube(video_url)
-        # Check if the video is live
-        if yt.is_live:
-            print(f"Skipping live video: {yt.title}")
-            return
         print(f"Downloading video: {yt.title}")
         video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
         if video_stream:
             video_stream.download(output_path=output_path)
-            await time.sleep(delay)  # Async sleep
+            await time.sleep(delay)  # Async sleep to avoid hitting any rate limits or for polite scraping
         else:
             print(f"No suitable video stream found for: {yt.title}")
     except Exception as e:
-        if "This video is unavailable" in str(e):  # This error message might indicate an age-restricted video
-            print(f"Skipping age-restricted or unavailable video: {yt.title}")
-        else:
-            print(f"Error downloading video {yt.title}: {e}")
+        print(f"Error downloading video {yt.title}: {e}")
+
 
 async def search_and_download_videos(search_query, output_path, max_results=5, delay=1):
     videos_search = VideosSearch(search_query, limit=max_results)
