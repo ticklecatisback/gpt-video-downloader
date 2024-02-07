@@ -75,7 +75,16 @@ async def upload_to_drive(service, file_path):
     file_metadata = {'name': os.path.basename(file_path)}
     media = MediaFileUpload(file_path, mimetype='application/zip')
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    return f"https://drive.google.com/uc?id={file.get('id')}"
+    file_id = file.get('id')
+
+    # Set the file to be publicly readable
+    permission = {
+        'type': 'anyone',
+        'role': 'reader',
+    }
+    service.permissions().create(fileId=file_id, body=permission).execute()
+
+    return f"https://drive.google.com/uc?id={file_id}"
 
 
 
