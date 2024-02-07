@@ -83,48 +83,33 @@ async def upload_file_background(service, file_path: str, temp_dir: str):
     os.rmdir(temp_dir)  # Then remove the temporary directory
     print(f"Cleaned up temporary directory: {temp_dir}")
 
-async def download_videos(background_tasks: BackgroundTasks, query: str = Query(..., description="The search query for downloading videos"), 
-                          limit: int = Query(1, description="The number of videos to download")):
-    video_urls = await get_video_urls_for_query(query, limit)
-    service = build_drive_service()
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        for i, video_url in enumerate(video_urls):
-            video_name = f"video_{i}.mp4"  # Generate a filename for each video
-            # Ensure directory and filename are correctly passed
-            if download_video(video_url, temp_dir, video_name):
-                print(f"Downloaded {video_name}")
-            else:
-                print(f"Failed to download {video_name}")
-
-    # Add the upload task to run in the background, also pass temp_dir for cleanup
-    background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
-
-    return {"message": "Processing videos. The zip file will be uploaded shortly."}
-
 
 @app.post("/download-videos/")
-async def download_videos(background_tasks: BackgroundTasks, query: str = Query(...), limit: int = Query(1)):
+async def download_videos(background_tasks: BackgroundTasks, query: str = Query(..., description="The search query for downloading videos"), limit: int = Query(1, description="The number of videos to download")):
     video_urls = await get_video_urls_for_query(query, limit)
     service = build_drive_service()
 
-    temp_dir = tempfile.mkdtemp()  # Use mkdtemp to manually manage the temp directory's lifecycle
+    # Create a temporary directory for videos and the zip file
+    temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, "videos.zip")
-    with zipfile.ZipFile(zip_filename, 'w') as zipf:
-        for i, video_url in enumerate(video_urls):
-            video_name = f"video_{i}.mp4"
-            video_path = os.path.join(temp_dir, video_name)
-            
-            # Corrected usage of run_in_executor for synchronous function
-            loop = asyncio.get_running_loop()
-            success = await loop.run_in_executor(None, download_video, video_url, temp_dir, video_name)
-            if success:
-                zipf.write(video_path, arcname=video_name)
-                print(f"Downloaded and added {video_name} to zip")
-            else:
-                print(f"Failed to download {video_name}")
 
-    background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
-    cleanup_temp_dir(temp_dir)
+    try:
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for i, video_url in enumerate(video_urls):
+                video_name = f"video_{i}.mp4"
+                video_path = os.path.join(temp_dir, video_name)
+                # Assuming you have a properly defined download_video function
+                success = download_video(video_url, temp_dir, video_name)
+                if success:
+                    zipf.write(video_path, arcname=video_name)
+                    print(f"Downloaded and added {video_name} to zip")
+                else:
+                    print(f"Failed to download {video_name}")
+        print(f"Zip file created at {zip_filename}")
+
+        # Queue the upload as a background task
+        background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
+    except Exception as e:
+        print(f"Error during video download or zip file creation: {e}")
 
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
