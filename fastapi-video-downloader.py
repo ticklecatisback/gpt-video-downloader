@@ -42,12 +42,12 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
 
 
 
-def download_video(video_url: str, output_path: str, filename: str):
+def download_video(video_url: str, output_path: str):
     try:
         yt = YouTube(video_url)
         video_stream = yt.streams.get_highest_resolution()
-        # Specify the output path (directory) and filename separately
-        video_stream.download(output_path=output_path, filename=filename)
+        # Download the video to the specified path
+        video_stream.download(output_path=output_path)
         return True
     except Exception as e:
         print(f"Error downloading video: {e}")
@@ -74,59 +74,38 @@ async def zip_videos(directory):
 async def upload_to_drive(service, file_path):
     file_metadata = {'name': os.path.basename(file_path)}
     media = MediaFileUpload(file_path, mimetype='application/zip')
-    try:
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        file_id = file.get('id')
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    file_id = file.get('id')
 
-        # Set the file to be publicly readable (optional)
-        permission = {
-            'type': 'anyone',
-            'role': 'reader',
-        }
-        service.permissions().create(fileId=file_id, body=permission).execute()
+    # Set the file to be publicly readable
+    permission = {
+        'type': 'anyone',
+        'role': 'reader',
+    }
+    service.permissions().create(fileId=file_id, body=permission).execute()
 
-        # Return or log the public URL
-        public_url = f"https://drive.google.com/uc?id={file_id}"
-        print(f"File uploaded successfully: {public_url}")
-        return public_url
-    except Exception as e:
-        print(f"Failed to upload file: {e}")
-        return None
+    return f"https://drive.google.com/uc?id={file_id}"
 
 
 
 
 @app.post("/download-videos/")
-async def download_videos(background_tasks: BackgroundTasks, query: str = Query(..., description="The search query for downloading videos"), 
+async def download_videos(query: str = Query(..., description="The search query for downloading videos"), 
                           limit: int = Query(1, description="The number of videos to download")):
     video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
-    background_tasks.add_task(upload_to_drive, service, zip_filename)
-
-    return {"message": "Processing videos. The zip file will be uploaded shortly."}
 
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
 
-        for i, video_url in enumerate(video_urls):  # Ensure you use video_url from the loop
-            video_name = f"video_{i}.mp4"
-            video_path = os.path.join(temp_dir, video_name)
-            # Call download_video function here to actually download the video
-            if download_video(video_url, temp_dir, video_name):  # Ensure directory and filename are correctly passed
-                print(f"Downloaded {video_name}")
-            else:
-                print(f"Failed to download {video_name}")
-
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            for i, _ in enumerate(video_urls):
+            for i, video_url in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
                 video_path = os.path.join(temp_dir, video_name)
-                if os.path.exists(video_path):
-                    print(f"Adding {video_name} to zip")
+                if download_video(video_url, video_path):  # Ensure the video is downloaded
                     zipf.write(video_path, arcname=video_name)
-                else:
-                    print(f"File does not exist: {video_path}")
 
-        drive_url = await upload_to_drive(service, zip_filename)  # Upload the zip file to Google Drive
+        # After zipping, upload the zip file to Google Drive
+        drive_url = await upload_to_drive(service, zip_filename)  # Correctly capture the return value to drive_url
 
     return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
