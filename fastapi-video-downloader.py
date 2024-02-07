@@ -42,16 +42,17 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
 
 
 
-def download_video(video_url: str):
-    # Command to download video
-    command = ['youtube-dl', video_url]
+def download_video(video_url: str, output_path: str):
     try:
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        print(f"Error downloading video: {e.output}")
-        return None
-
+        yt = YouTube(video_url)
+        # Get the highest resolution stream available
+        video_stream = yt.streams.get_highest_resolution()
+        # Download the video directly to the specified output path
+        video_stream.download(output_path=output_path)
+        return True
+    except Exception as e:
+        print(f"Error downloading video: {e}")
+        return False
 
 def download_video_in_memory(direct_video_url: str):
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -82,18 +83,16 @@ async def upload_to_drive(service, file_path):
 @app.post("/download-videos/")
 async def download_videos(query: str = Query(..., description="The search query for downloading videos"), 
                           limit: int = Query(1, description="The number of videos to download")):
-    # You'll need to implement or adjust get_video_urls_for_query to fetch video URLs
     video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
-    uploaded_urls = []
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        zip_filename = os.path.join(temp_dir, "videos.zip")
-        with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            for i, video_url in enumerate(video_urls):
-                file_content = download_video_in_memory(video_url)
-                if not file_content:
-                    continue  # Skip this video and proceed to the next
+        for i, video_url in enumerate(video_urls):
+            video_name = f"video_{i}.mp4"  # Name of the video file
+            video_path = os.path.join(temp_dir, video_name)
+            # Use pytube to download the video directly to the specified path
+            if not download_video(video_url, temp_dir):
+                continue  # Skip this video if download failed
                 
                 video_name = f"video_{i}.mp4"  # Adjust the extension based on actual video format
                 video_path = os.path.join(temp_dir, video_name)
