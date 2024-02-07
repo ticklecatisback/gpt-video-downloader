@@ -89,7 +89,7 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
 
 
-@app.post("/download-videos/")  # Corrected to include the route decorator
+@app.post("/download-videos/")
 async def download_videos(background_tasks: BackgroundTasks, query: str = Query(...), limit: int = Query(1)):
     video_urls = await get_video_urls_for_query(query, limit)
     service = build_drive_service()
@@ -100,7 +100,9 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
         for i, video_url in enumerate(video_urls):
             video_name = f"video_{i}.mp4"
             video_path = os.path.join(temp_dir, video_name)
-            # Assuming synchronous execution; adjust if you make download_video async
+            
+            # Corrected usage of run_in_executor for synchronous function
+            loop = asyncio.get_running_loop()
             success = await loop.run_in_executor(None, download_video, video_url, temp_dir, video_name)
             if success:
                 zipf.write(video_path, arcname=video_name)
@@ -108,7 +110,6 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
             else:
                 print(f"Failed to download {video_name}")
 
-    # Ensure background_tasks.add_task is correctly called
     background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
 
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
