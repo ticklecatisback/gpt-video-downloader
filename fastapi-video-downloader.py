@@ -104,12 +104,12 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
                           limit: int = Query(1, description="The number of videos to download")):
     video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
-    background_tasks.add_task(upload_file_background, service, zip_filename)
 
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
 
-    with tempfile.TemporaryDirectory() as temp_dir:
+   with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
+        background_tasks.add_task(upload_file_background, service, zip_filename)
 
         for i, video_url in enumerate(video_urls):  # Ensure you use video_url from the loop
             video_name = f"video_{i}.mp4"
