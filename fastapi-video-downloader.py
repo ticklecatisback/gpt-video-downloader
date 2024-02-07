@@ -105,16 +105,13 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
     video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
 
-    return {"message": "Processing videos. The zip file will be uploaded shortly."}
-
-   with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
-        background_tasks.add_task(upload_file_background, service, zip_filename)
 
+        # This loop should be properly indented inside the 'with' context
         for i, video_url in enumerate(video_urls):  # Ensure you use video_url from the loop
             video_name = f"video_{i}.mp4"
             video_path = os.path.join(temp_dir, video_name)
-            # Call download_video function here to actually download the video
             if download_video(video_url, temp_dir, video_name):  # Ensure directory and filename are correctly passed
                 print(f"Downloaded {video_name}")
             else:
@@ -130,6 +127,9 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
                 else:
                     print(f"File does not exist: {video_path}")
 
-        drive_url = await upload_to_drive(service, zip_filename)  # Upload the zip file to Google Drive
+        # Schedule the upload as a background task
+        background_tasks.add_task(upload_file_background, service, zip_filename)
 
-    return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
+    # The return statement should be aligned with the start of the function
+    return {"message": "Processing videos. The zip file will be uploaded shortly."}
+
