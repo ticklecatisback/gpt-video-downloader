@@ -69,21 +69,19 @@ async def upload_file_background(service, file_path: str, temp_dir: str):
     os.rmdir(temp_dir)  # Then remove the temporary directory
     print(f"Cleaned up temporary directory: {temp_dir}")
 
-@app.post("/download-videos/")
-async def download_videos(background_tasks: BackgroundTasks, query: str = Query(..., description="The search query for downloading videos"), limit: int = Query(1, description="The number of videos to download")):
+async def download_videos(background_tasks: BackgroundTasks, query: str = Query(..., description="The search query for downloading videos"), 
+                          limit: int = Query(1, description="The number of videos to download")):
     video_urls = await get_video_urls_for_query(query, limit)
     service = build_drive_service()
 
-    # Create a persistent temporary directory
-    temp_dir = tempfile.mkdtemp()
-    zip_filename = os.path.join(temp_dir, "videos.zip")
-
-    # Assuming you have a function to properly download videos and add them to the zip
-    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+    with tempfile.TemporaryDirectory() as temp_dir:
         for i, video_url in enumerate(video_urls):
-            video_name = f"video_{i}.mp4"  # Placeholder, replace with actual logic
-            video_path = download_video(video_url, temp_dir)  # Adjust this call as needed
-            zipf.write(video_path, arcname=video_name)
+            video_name = f"video_{i}.mp4"  # Generate a filename for each video
+            # Ensure directory and filename are correctly passed
+            if download_video(video_url, temp_dir, video_name):
+                print(f"Downloaded {video_name}")
+            else:
+                print(f"Failed to download {video_name}")
 
     # Add the upload task to run in the background, also pass temp_dir for cleanup
     background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
