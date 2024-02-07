@@ -100,7 +100,7 @@ async def upload_file_background(service, file_path):
 
 
 @app.post("/download-videos/")
-async def download_videos(query: str = Query(..., description="The search query for downloading videos"), 
+async def download_videos(background_tasks: BackgroundTasks, query: str = Query(..., description="The search query for downloading videos"), 
                           limit: int = Query(1, description="The number of videos to download")):
     video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
