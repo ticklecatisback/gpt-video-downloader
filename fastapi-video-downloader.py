@@ -93,7 +93,7 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
     temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, "videos.zip")
 
-    try:
+     try:
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, video_url in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
@@ -111,5 +111,5 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
         background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
     except Exception as e:
         print(f"Error during video download or zip file creation: {e}")
-
+        
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
