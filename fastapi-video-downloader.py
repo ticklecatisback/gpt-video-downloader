@@ -45,14 +45,14 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
 def download_video(video_url: str, output_path: str):
     try:
         yt = YouTube(video_url)
-        # Get the highest resolution stream available
         video_stream = yt.streams.get_highest_resolution()
-        # Download the video directly to the specified output path
+        # Download the video to the specified path
         video_stream.download(output_path=output_path)
         return True
     except Exception as e:
         print(f"Error downloading video: {e}")
         return False
+
 
 def download_video_in_memory(direct_video_url: str):
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -87,7 +87,12 @@ async def download_videos(query: str = Query(..., description="The search query 
     service = build_drive_service()
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        zip_filename = os.path.join(temp_dir, "videos.zip")  # Define zip_filename here to use it later
+        for i, video_url in enumerate(video_urls):
+            video_name = f"video_{i}.mp4"
+            video_path = os.path.join(temp_dir, video_name)  # Full path for the video file
+            if not download_video(video_url, video_path):  # Pass the full path to download_video
+                continue  # Skip if download failed
+
 
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, video_url in enumerate(video_urls):
