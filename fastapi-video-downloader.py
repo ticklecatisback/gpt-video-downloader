@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import requests
 from io import BytesIO
+from pytube.exceptions import PytubeError
 
 
 app = FastAPI()
@@ -34,17 +35,18 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
     await loop.run_in_executor(None, videos_search.next)  # Run in executor
     return [result['link'] for result in videos_search.result()['result']]
 
-def download_video(video_url: str, output_path: str):
+def download_video(video_url: str, output_path: str, filename: str):
     try:
         yt = YouTube(video_url)
         video_stream = yt.streams.get_highest_resolution()
         video_stream.download(output_path=output_path, filename=filename)
         return True
-    except exceptions.AgeRestrictedError:
-        print(f"Video {video_url} is age restricted and cannot be downloaded without logging in.")
+    except PytubeError as e:  # Use a general pytube exception or the correct specific one if available
+        print(f"Error downloading video {video_url}: {e}")
+        # Handle specific error messages if necessary, e.g., checking error message strings
         return False
     except Exception as e:
-        print(f"Error downloading video {video_url}: {e}")
+        print(f"Unexpected error downloading video {video_url}: {e}")
         return False
 
 async def upload_file_background(service, file_path: str, temp_dir: str):
