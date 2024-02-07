@@ -98,6 +98,15 @@ async def download_videos(query: str = Query(..., description="The search query 
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
 
+        for i, video_url in enumerate(video_urls):  # Ensure you use video_url from the loop
+            video_name = f"video_{i}.mp4"
+            video_path = os.path.join(temp_dir, video_name)
+            # Call download_video function here to actually download the video
+            if download_video(video_url, temp_dir, video_name):  # Ensure directory and filename are correctly passed
+                print(f"Downloaded {video_name}")
+            else:
+                print(f"Failed to download {video_name}")
+
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, _ in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
@@ -108,8 +117,6 @@ async def download_videos(query: str = Query(..., description="The search query 
                 else:
                     print(f"File does not exist: {video_path}")
 
-        # After zipping, upload the zip file to Google Drive
-        drive_url = await upload_to_drive(service, zip_filename)  # Correctly capture the return value to drive_url
+        drive_url = await upload_to_drive(service, zip_filename)  # Upload the zip file to Google Drive
 
     return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
-
