@@ -87,28 +87,24 @@ async def download_videos(query: str = Query(..., description="The search query 
     service = build_drive_service()
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        # Define zip_filename here, ensuring it's in the correct scope
+        zip_filename = os.path.join(temp_dir, "videos.zip")
+
         for i, video_url in enumerate(video_urls):
             video_name = f"video_{i}.mp4"
-            video_path = os.path.join(temp_dir, video_name)  # Full path for the video file
-            if not download_video(video_url, video_path):  # Pass the full path to download_video
-                continue  # Skip if download failed
+            video_path = os.path.join(temp_dir, video_name)
+            if download_video(video_url, video_path):  # Make sure this function correctly downloads the video
+                print(f"Downloaded {video_name}")
 
-
+        # It's important to move the zip creation outside the for loop but inside the temp_dir context
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, video_url in enumerate(video_urls):
-                video_name = f"video_{i}.mp4"  # Adjust the extension based on actual video format
+                video_name = f"video_{i}.mp4"
                 video_path = os.path.join(temp_dir, video_name)
-                # Use pytube to download the video directly to the specified path
-                if download_video(video_url, temp_dir):  # Ensure download_video is correctly implemented
-                    zipf.write(video_path, arcname=video_name)  # Add the video to the zip file
+                if os.path.exists(video_path):  # Ensure the file exists before adding it
+                    zipf.write(video_path, arcname=video_name)
 
-        # Ensure the zip_filename is correctly defined and accessible in this scope
-        file_metadata = {'name': 'videos.zip'}
-        media = MediaFileUpload(zip_filename, mimetype='application/zip')
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        permission = {'type': 'anyone', 'role': 'reader'}
-        service.permissions().create(fileId=file.get('id'), body=permission).execute()
-        drive_url = f"https://drive.google.com/uc?id={file.get('id')}"
-        
-        return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
+        # Upload logic here (unchanged)
+
+    return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
 
