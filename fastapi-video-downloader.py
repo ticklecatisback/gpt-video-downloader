@@ -35,10 +35,17 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
     return [result['link'] for result in videos_search.result()['result']]
 
 def download_video(video_url: str, output_path: str):
-    yt = YouTube(video_url)
-    video_stream = yt.streams.get_highest_resolution()
-    video_stream.download(output_path=output_path)
-    return os.path.join(output_path, video_stream.default_filename)
+    try:
+        yt = YouTube(video_url)
+        video_stream = yt.streams.get_highest_resolution()
+        video_stream.download(output_path=output_path, filename=filename)
+        return True
+    except exceptions.AgeRestrictedError:
+        print(f"Video {video_url} is age restricted and cannot be downloaded without logging in.")
+        return False
+    except Exception as e:
+        print(f"Error downloading video {video_url}: {e}")
+        return False
 
 async def upload_file_background(service, file_path: str, temp_dir: str):
     file_metadata = {'name': os.path.basename(file_path)}
