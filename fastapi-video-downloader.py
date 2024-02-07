@@ -42,12 +42,12 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
 
 
 
-def download_video(video_url: str, output_path: str):
+def download_video(video_url: str, output_path: str, filename: str):
     try:
         yt = YouTube(video_url)
         video_stream = yt.streams.get_highest_resolution()
-        # Download the video to the specified path
-        video_stream.download(output_path=output_path)
+        # Specify the output path (directory) and filename separately
+        video_stream.download(output_path=output_path, filename=filename)
         return True
     except Exception as e:
         print(f"Error downloading video: {e}")
@@ -101,9 +101,10 @@ async def download_videos(query: str = Query(..., description="The search query 
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, video_url in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
-                video_path = os.path.join(temp_dir, video_name)
-                if download_video(video_url, video_path):  # Ensure the video is downloaded
-                    zipf.write(video_path, arcname=video_name)
+                video_path = os.path.join(temp_dir, video_name)  # Directory to download into
+                # Now call download_video with the directory and filename separately
+                if download_video(video_url, temp_dir, video_name):  # temp_dir is the output directory, video_name is the filename
+                    print(f"Downloaded {video_name}")
 
         # After zipping, upload the zip file to Google Drive
         drive_url = await upload_to_drive(service, zip_filename)  # Correctly capture the return value to drive_url
