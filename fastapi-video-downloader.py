@@ -42,12 +42,12 @@ async def get_video_urls_for_query(query: str, limit: int = 5):
 
 
 
-def download_video(video_url: str, output_path: str):
+def download_video(video_url: str, output_path: str, filename: str):
     try:
         yt = YouTube(video_url)
         video_stream = yt.streams.get_highest_resolution()
-        # Download the video to the specified path
-        video_stream.download(output_path=output_path)
+        # Specify the output path (directory) and filename separately
+        video_stream.download(output_path=output_path, filename=filename)
         return True
     except Exception as e:
         print(f"Error downloading video: {e}")
@@ -98,14 +98,25 @@ async def download_videos(query: str = Query(..., description="The search query 
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
 
+        for i, video_url in enumerate(video_urls):  # Ensure you use video_url from the loop
+            video_name = f"video_{i}.mp4"
+            video_path = os.path.join(temp_dir, video_name)
+            # Call download_video function here to actually download the video
+            if download_video(video_url, temp_dir, video_name):  # Ensure directory and filename are correctly passed
+                print(f"Downloaded {video_name}")
+            else:
+                print(f"Failed to download {video_name}")
+
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            for i, video_url in enumerate(video_urls):
+            for i, _ in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
                 video_path = os.path.join(temp_dir, video_name)
-                if download_video(video_url, video_path):  # Ensure the video is downloaded
+                if os.path.exists(video_path):
+                    print(f"Adding {video_name} to zip")
                     zipf.write(video_path, arcname=video_name)
+                else:
+                    print(f"File does not exist: {video_path}")
 
-        # After zipping, upload the zip file to Google Drive
-        drive_url = await upload_to_drive(service, zip_filename)  # Correctly capture the return value to drive_url
+        drive_url = await upload_to_drive(service, zip_filename)  # Upload the zip file to Google Drive
 
     return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
