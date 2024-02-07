@@ -49,6 +49,20 @@ def download_video(video_url: str, output_path: str, filename: str):
         print(f"Unexpected error downloading video {video_url}: {e}")
         return False
 
+def cleanup_temp_dir(temp_dir):
+    # Check if the directory exists
+    if os.path.exists(temp_dir):
+        # Iterate over all files and remove them
+        for filename in os.listdir(temp_dir):
+            file_path = os.path.join(temp_dir, filename)
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)  # Removes files and links
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)  # Recursively removes directories
+        # Finally, remove the empty directory
+        os.rmdir(temp_dir)
+
+
 async def upload_file_background(service, file_path: str, temp_dir: str):
     file_metadata = {'name': os.path.basename(file_path)}
     media = MediaFileUpload(file_path, mimetype='application/zip')
@@ -111,5 +125,6 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
                 print(f"Failed to download {video_name}")
 
     background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
+    cleanup_temp_dir(temp_dir)
 
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
