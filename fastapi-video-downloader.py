@@ -87,24 +87,17 @@ async def download_videos(query: str = Query(..., description="The search query 
     service = build_drive_service()
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Define zip_filename here, ensuring it's in the correct scope
         zip_filename = os.path.join(temp_dir, "videos.zip")
 
-        for i, video_url in enumerate(video_urls):
-            video_name = f"video_{i}.mp4"
-            video_path = os.path.join(temp_dir, video_name)
-            if download_video(video_url, video_path):  # Make sure this function correctly downloads the video
-                print(f"Downloaded {video_name}")
-
-        # It's important to move the zip creation outside the for loop but inside the temp_dir context
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, video_url in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
                 video_path = os.path.join(temp_dir, video_name)
-                if os.path.exists(video_path):  # Ensure the file exists before adding it
+                if download_video(video_url, video_path):  # Ensure the video is downloaded
                     zipf.write(video_path, arcname=video_name)
 
-        # Upload logic here (unchanged)
+        # After zipping, upload the zip file to Google Drive
+        drive_url = await upload_to_drive(service, zip_filename)  # Correctly capture the return value to drive_url
 
     return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
 
