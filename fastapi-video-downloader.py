@@ -87,21 +87,17 @@ async def download_videos(query: str = Query(..., description="The search query 
     service = build_drive_service()
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        for i, video_url in enumerate(video_urls):
-            video_name = f"video_{i}.mp4"  # Name of the video file
-            video_path = os.path.join(temp_dir, video_name)
-            # Use pytube to download the video directly to the specified path
-            if not download_video(video_url, temp_dir):
-                continue  # Skip this video if download failed
-                
+        zip_filename = os.path.join(temp_dir, "videos.zip")  # Define zip_filename here to use it later
+
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for i, video_url in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"  # Adjust the extension based on actual video format
                 video_path = os.path.join(temp_dir, video_name)
-                with open(video_path, 'wb') as video_file:
-                    video_file.write(file_content.getbuffer())  # Write the video content to a file
-                
-                zipf.write(video_path, arcname=video_name)  # Add the video to the zip file
+                # Use pytube to download the video directly to the specified path
+                if download_video(video_url, temp_dir):  # Ensure download_video is correctly implemented
+                    zipf.write(video_path, arcname=video_name)  # Add the video to the zip file
 
-        # Upload the zip file to Google Drive with adjusted MIME type for videos
+        # Ensure the zip_filename is correctly defined and accessible in this scope
         file_metadata = {'name': 'videos.zip'}
         media = MediaFileUpload(zip_filename, mimetype='application/zip')
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
@@ -111,6 +107,3 @@ async def download_videos(query: str = Query(..., description="The search query 
         
         return {"message": "Zip file with videos uploaded successfully.", "url": drive_url}
 
-# Adjust or add any necessary functions for video handling, such as get_video_urls_for_query and download_video_in_memory
-
-# Your root function remains unchanged
