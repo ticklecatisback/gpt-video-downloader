@@ -87,3 +87,28 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
     background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
 
     return {"message": "Processing videos. The zip file will be uploaded shortly."}
+
+
+@app.post("/download-videos/")  # Corrected to include the route decorator
+async def download_videos(background_tasks: BackgroundTasks, query: str = Query(...), limit: int = Query(1)):
+    video_urls = await get_video_urls_for_query(query, limit)
+    service = build_drive_service()
+
+    temp_dir = tempfile.mkdtemp()  # Use mkdtemp to manually manage the temp directory's lifecycle
+    zip_filename = os.path.join(temp_dir, "videos.zip")
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        for i, video_url in enumerate(video_urls):
+            video_name = f"video_{i}.mp4"
+            video_path = os.path.join(temp_dir, video_name)
+            # Assuming synchronous execution; adjust if you make download_video async
+            success = await loop.run_in_executor(None, download_video, video_url, temp_dir, video_name)
+            if success:
+                zipf.write(video_path, arcname=video_name)
+                print(f"Downloaded and added {video_name} to zip")
+            else:
+                print(f"Failed to download {video_name}")
+
+    # Ensure background_tasks.add_task is correctly called
+    background_tasks.add_task(upload_file_background, service, zip_filename, temp_dir)
+
+    return {"message": "Processing videos. The zip file will be uploaded shortly."}
