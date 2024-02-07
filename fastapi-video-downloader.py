@@ -71,20 +71,30 @@ async def zip_videos(directory):
         subprocess.run(['zip', '-r', zip_path, '.'], cwd=directory, check=True)
     return zip_path
 
-async def upload_to_drive(service, file_path):
+from googleapiclient.http import MediaFileUpload
+
+async def upload_file_background(service, file_path):
     file_metadata = {'name': os.path.basename(file_path)}
     media = MediaFileUpload(file_path, mimetype='application/zip')
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    file_id = file.get('id')
+    try:
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        file_id = file.get('id')
 
-    # Set the file to be publicly readable
-    permission = {
-        'type': 'anyone',
-        'role': 'reader',
-    }
-    service.permissions().create(fileId=file_id, body=permission).execute()
+        # Set the file to be publicly readable (optional)
+        permission = {
+            'type': 'anyone',
+            'role': 'reader',
+        }
+        service.permissions().create(fileId=file_id, body=permission).execute()
 
-    return f"https://drive.google.com/uc?id={file_id}"
+        # Return or log the public URL
+        public_url = f"https://drive.google.com/uc?id={file_id}"
+        print(f"File uploaded successfully: {public_url}")
+        return public_url
+    except Exception as e:
+        print(f"Failed to upload file: {e}")
+        return None
+
 
 
 
@@ -94,6 +104,9 @@ async def download_videos(query: str = Query(..., description="The search query 
                           limit: int = Query(1, description="The number of videos to download")):
     video_urls = await get_video_urls_for_query(query, limit=limit)
     service = build_drive_service()
+    background_tasks.add_task(upload_file_background, service, zip_filename)
+
+    return {"message": "Processing videos. The zip file will be uploaded shortly."}
 
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_filename = os.path.join(temp_dir, "videos.zip")
