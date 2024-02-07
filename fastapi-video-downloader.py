@@ -93,7 +93,7 @@ async def download_videos(background_tasks: BackgroundTasks, query: str = Query(
     temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, "videos.zip")
 
-     try:
+    try:
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for i, video_url in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
