@@ -29,8 +29,9 @@ def build_drive_service():
     return build('drive', 'v3', credentials=credentials)
 
 async def get_video_urls_for_query(query: str, limit: int = 5):
+    loop = asyncio.get_running_loop()
     videos_search = VideosSearch(query, limit=limit)
-    await videos_search.next()
+    await loop.run_in_executor(None, videos_search.next)  # Run in executor
     return [result['link'] for result in videos_search.result()['result']]
 
 def download_video(video_url: str, output_path: str):
