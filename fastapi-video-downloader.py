@@ -80,7 +80,8 @@ async def upload_file_background(service, file_path: str, temp_dir: str):
 
     # Cleanup the temporary directory after upload
     os.remove(file_path)  # Remove the zip file first
-    os.rmdir(temp_dir)  # Then remove the temporary directory
+
+    shutil.rmtree(temp_dir)  # Corrected to use shutil.rmtree to remove the directory and its contents
     print(f"Cleaned up temporary directory: {temp_dir}")
 
 
