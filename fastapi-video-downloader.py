@@ -99,12 +99,14 @@ async def download_videos(query: str = Query(..., description="The search query 
         zip_filename = os.path.join(temp_dir, "videos.zip")
 
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            for i, video_url in enumerate(video_urls):
+            for i, _ in enumerate(video_urls):
                 video_name = f"video_{i}.mp4"
-                video_path = os.path.join(temp_dir, video_name)  # Directory to download into
-                # Now call download_video with the directory and filename separately
-                if download_video(video_url, temp_dir, video_name):  # temp_dir is the output directory, video_name is the filename
-                    print(f"Downloaded {video_name}")
+                video_path = os.path.join(temp_dir, video_name)
+                if os.path.exists(video_path):
+                    print(f"Adding {video_name} to zip")
+                    zipf.write(video_path, arcname=video_name)
+                else:
+                    print(f"File does not exist: {video_path}")
 
         # After zipping, upload the zip file to Google Drive
         drive_url = await upload_to_drive(service, zip_filename)  # Correctly capture the return value to drive_url
