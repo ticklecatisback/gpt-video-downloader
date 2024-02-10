@@ -21,7 +21,7 @@ from io import BytesIO
 app = FastAPI()
 
 
-SERVICE_ACCOUNT_FILE = 'triple-water-379900-cd410b5aff31.json'
+SERVICE_ACCOUNT_FILE = 'YOUR_JSON_FILE'
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def build_drive_service():
